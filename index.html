@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>검사 순서 번호표</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html, body { height: 100%; }
+
+  body {
+    font-family: 'Segoe UI', 'Malgun Gothic', '맑은 고딕', sans-serif;
+    background: linear-gradient(160deg, #1a2a4f 0%, #0f1b33 100%);
+    color: #fff;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    user-select: none;
+  }
+
+  /* ── 상단 바 ───────────────────────────── */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 28px;
+    background: rgba(255, 255, 255, 0.06);
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  header h1 {
+    font-size: clamp(20px, 2.5vw, 32px);
+    font-weight: 700;
+    letter-spacing: 2px;
+  }
+
+  .volume-box {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: rgba(255, 255, 255, 0.08);
+    padding: 8px 18px;
+    border-radius: 999px;
+  }
+
+  .volume-box .icon { font-size: 22px; cursor: pointer; }
+
+  .volume-box input[type="range"] {
+    width: 160px;
+    accent-color: #ffd75e;
+    cursor: pointer;
+    height: 24px;
+  }
+
+  .volume-box .vol-num {
+    width: 3.2em;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    font-size: 15px;
+    opacity: 0.85;
+  }
+
+  /* ── 현재 번호 (크게) ───────────────────── */
+  main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    min-height: 0;
+  }
+
+  .now-label {
+    font-size: clamp(18px, 2.6vw, 34px);
+    color: #ffd75e;
+    letter-spacing: 6px;
+    font-weight: 600;
+  }
+
+  .now-number {
+    font-size: clamp(120px, 30vh, 340px);
+    font-weight: 800;
+    line-height: 1.05;
+    font-variant-numeric: tabular-nums;
+    text-shadow: 0 0 60px rgba(255, 215, 94, 0.35);
+    transition: transform 0.15s ease;
+  }
+
+  .now-number.bump { animation: bump 0.6s ease; }
+
+  @keyframes bump {
+    0%   { transform: scale(0.6); opacity: 0.2; }
+    60%  { transform: scale(1.12); opacity: 1; }
+    100% { transform: scale(1); }
+  }
+
+  .now-number.empty {
+    font-size: clamp(40px, 8vh, 90px);
+    color: rgba(255, 255, 255, 0.45);
+    text-shadow: none;
+  }
+
+  /* ── 대기 번호 (작게) ───────────────────── */
+  .wait-area {
+    padding: 14px 28px 10px;
+  }
+
+  .wait-title {
+    font-size: clamp(14px, 1.6vw, 22px);
+    color: rgba(255, 255, 255, 0.7);
+    margin-bottom: 10px;
+    letter-spacing: 2px;
+  }
+
+  .wait-title b { color: #7ec8ff; font-size: 1.15em; }
+
+  .wait-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    max-height: 18vh;
+    overflow-y: auto;
+  }
+
+  .wait-chip {
+    background: rgba(126, 200, 255, 0.14);
+    border: 1px solid rgba(126, 200, 255, 0.4);
+    color: #cfe9ff;
+    border-radius: 12px;
+    padding: 6px 16px;
+    font-size: clamp(16px, 2vw, 28px);
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .wait-chip.first {
+    background: rgba(255, 215, 94, 0.18);
+    border-color: rgba(255, 215, 94, 0.65);
+    color: #ffe9a8;
+  }
+
+  .wait-empty {
+    color: rgba(255, 255, 255, 0.35);
+    font-size: clamp(14px, 1.6vw, 22px);
+    padding: 6px 0;
+  }
+
+  /* ── 하단 버튼 ─────────────────────────── */
+  footer {
+    display: flex;
+    gap: 16px;
+    padding: 16px 28px 24px;
+    flex-wrap: wrap;
+  }
+
+  button {
+    font-family: inherit;
+    border: none;
+    border-radius: 18px;
+    cursor: pointer;
+    font-weight: 700;
+    transition: transform 0.08s ease, filter 0.15s ease;
+    touch-action: manipulation;
+  }
+
+  button:active { transform: scale(0.96); filter: brightness(1.15); }
+
+  .btn-ticket {
+    flex: 2;
+    min-width: 220px;
+    padding: clamp(18px, 3vh, 30px);
+    font-size: clamp(22px, 3vw, 40px);
+    background: linear-gradient(160deg, #3f8cff, #2a6ae0);
+    color: #fff;
+    box-shadow: 0 6px 24px rgba(63, 140, 255, 0.4);
+  }
+
+  .btn-next {
+    flex: 2;
+    min-width: 220px;
+    padding: clamp(18px, 3vh, 30px);
+    font-size: clamp(22px, 3vw, 40px);
+    background: linear-gradient(160deg, #ffd75e, #f0b428);
+    color: #4a3200;
+    box-shadow: 0 6px 24px rgba(255, 215, 94, 0.35);
+  }
+
+  .btn-reset {
+    flex: 0.6;
+    min-width: 110px;
+    font-size: clamp(15px, 1.6vw, 22px);
+    background: rgba(255, 255, 255, 0.12);
+    color: rgba(255, 255, 255, 0.75);
+  }
+
+  /* ── 번호표 발급 팝업 ───────────────────── */
+  .ticket-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.72);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+  }
+
+  .ticket-overlay.show { display: flex; }
+
+  .ticket-card {
+    background: #fff;
+    color: #1a2a4f;
+    border-radius: 28px;
+    padding: 6vh 10vw;
+    text-align: center;
+    animation: bump 0.4s ease;
+    box-shadow: 0 20px 80px rgba(0, 0, 0, 0.5);
+  }
+
+  .ticket-card .t-label { font-size: clamp(18px, 2.4vw, 30px); color: #666; }
+
+  .ticket-card .t-num {
+    font-size: clamp(90px, 18vh, 200px);
+    font-weight: 800;
+    color: #2a6ae0;
+    line-height: 1.1;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .ticket-card .t-hint {
+    font-size: clamp(16px, 2vw, 26px);
+    color: #d0342c;
+    font-weight: 700;
+    margin-top: 8px;
+  }
+</style>
+</head>
+<body>
+
+  <header>
+    <h1>🔔 검사 순서 알림판</h1>
+    <div class="volume-box">
+      <span class="icon" id="volIcon" title="소리 켜기/끄기">🔊</span>
+      <input type="range" id="volSlider" min="0" max="100" value="70">
+      <span class="vol-num" id="volNum">70%</span>
+    </div>
+  </header>
+
+  <main>
+    <div class="now-label">지금 검사받는 번호</div>
+    <div class="now-number empty" id="nowNumber">대기 중</div>
+  </main>
+
+  <div class="wait-area">
+    <div class="wait-title">대기 번호 <b id="waitCount">0</b>명</div>
+    <div class="wait-list" id="waitList">
+      <span class="wait-empty">대기하는 학생이 없습니다. 번호표를 뽑아 주세요.</span>
+    </div>
+  </div>
+
+  <footer>
+    <button class="btn-ticket" id="btnTicket">🎫 번호표 뽑기</button>
+    <button class="btn-next" id="btnNext">👋 다음 학생</button>
+    <button class="btn-reset" id="btnReset">처음부터</button>
+  </footer>
+
+  <!-- 번호표 발급 팝업 -->
+  <div class="ticket-overlay" id="ticketOverlay">
+    <div class="ticket-card">
+      <div class="t-label">내 번호표</div>
+      <div class="t-num" id="ticketNum">1</div>
+      <div class="t-hint">번호를 꼭 기억하고 자리에서 기다리세요!</div>
+    </div>
+  </div>
+
+<script>
+(() => {
+  'use strict';
+
+  const STORAGE_KEY = 'inspection-queue-v1';
+
+  // ── 상태 ─────────────────────────────────
+  let state = {
+    nextTicket: 1,   // 다음에 발급될 번호
+    current: null,   // 지금 검사받는 번호
+    queue: [],       // 대기 번호 목록
+    volume: 0.7,
+  };
+
+  try {
+    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
+    if (saved && typeof saved.nextTicket === 'number') {
+      state = { ...state, ...saved };
+    }
+  } catch (e) { /* 저장된 상태가 없거나 손상됨 → 기본값 사용 */ }
+
+  function save() {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  }
+
+  // ── DOM ──────────────────────────────────
+  const nowNumber = document.getElementById('nowNumber');
+  const waitList = document.getElementById('waitList');
+  const waitCount = document.getElementById('waitCount');
+  const btnTicket = document.getElementById('btnTicket');
+  const btnNext = document.getElementById('btnNext');
+  const btnReset = document.getElementById('btnReset');
+  const volSlider = document.getElementById('volSlider');
+  const volNum = document.getElementById('volNum');
+  const volIcon = document.getElementById('volIcon');
+  const ticketOverlay = document.getElementById('ticketOverlay');
+  const ticketNum = document.getElementById('ticketNum');
+
+  // ── 띵동! 소리 (Web Audio, 외부 파일 불필요) ──
+  let audioCtx = null;
+
+  function playDingDong() {
+    if (state.volume <= 0) return;
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+
+    const t0 = audioCtx.currentTime;
+    // 띵(높은 음) → 동(낮은 음), 초인종 느낌의 2음 차임
+    playChime(659.25, t0, 0.9);        // E5 = 띵
+    playChime(523.25, t0 + 0.45, 1.3); // C5 = 동
+  }
+
+  function playChime(freq, startTime, duration) {
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'sine';
+    osc.frequency.value = freq;
+
+    // 배음을 살짝 더해 차임벨 느낌 내기
+    const osc2 = audioCtx.createOscillator();
+    osc2.type = 'sine';
+    osc2.frequency.value = freq * 2;
+    const gain2 = audioCtx.createGain();
+    gain2.gain.value = 0.25;
+
+    const peak = Math.max(0.0001, state.volume * 0.6);
+    gain.gain.setValueAtTime(0.0001, startTime);
+    gain.gain.exponentialRampToValueAtTime(peak, startTime + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, startTime + duration);
+
+    osc.connect(gain);
+    osc2.connect(gain2);
+    gain2.connect(gain);
+    gain.connect(audioCtx.destination);
+
+    osc.start(startTime);
+    osc2.start(startTime);
+    osc.stop(startTime + duration + 0.05);
+    osc2.stop(startTime + duration + 0.05);
+  }
+
+  // ── 화면 그리기 ───────────────────────────
+  function render() {
+    if (state.current === null) {
+      nowNumber.textContent = state.queue.length > 0 ? '"다음 학생"을 눌러 주세요' : '대기 중';
+      nowNumber.classList.add('empty');
+    } else {
+      nowNumber.textContent = state.current + '번';
+      nowNumber.classList.remove('empty');
+    }
+
+    waitCount.textContent = state.queue.length;
+    waitList.innerHTML = '';
+    if (state.queue.length === 0) {
+      const span = document.createElement('span');
+      span.className = 'wait-empty';
+      span.textContent = '대기하는 학생이 없습니다. 번호표를 뽑아 주세요.';
+      waitList.appendChild(span);
+    } else {
+      state.queue.forEach((n, i) => {
+        const chip = document.createElement('span');
+        chip.className = 'wait-chip' + (i === 0 ? ' first' : '');
+        chip.textContent = n + '번';
+        waitList.appendChild(chip);
+      });
+    }
+  }
+
+  // ── 동작 ─────────────────────────────────
+  // 학생: 번호표 뽑기
+  btnTicket.addEventListener('click', () => {
+    const num = state.nextTicket++;
+    state.queue.push(num);
+    save();
+    render();
+
+    ticketNum.textContent = num + '번';
+    ticketOverlay.classList.add('show');
+  });
+
+  // 팝업은 화면을 누르면 닫힘
+  ticketOverlay.addEventListener('click', () => {
+    ticketOverlay.classList.remove('show');
+  });
+
+  // 선생님: 다음 학생 호출
+  btnNext.addEventListener('click', () => {
+    if (state.queue.length === 0) {
+      state.current = null;
+      save();
+      render();
+      return;
+    }
+    state.current = state.queue.shift();
+    save();
+    render();
+
+    nowNumber.classList.remove('bump');
+    void nowNumber.offsetWidth; // 애니메이션 재시작
+    nowNumber.classList.add('bump');
+
+    playDingDong();
+  });
+
+  // 처음부터 (초기화)
+  btnReset.addEventListener('click', () => {
+    if (!confirm('모든 번호를 지우고 1번부터 다시 시작할까요?')) return;
+    state.nextTicket = 1;
+    state.current = null;
+    state.queue = [];
+    save();
+    render();
+  });
+
+  // ── 소리 조절 ─────────────────────────────
+  function updateVolumeUI() {
+    const pct = Math.round(state.volume * 100);
+    volSlider.value = pct;
+    volNum.textContent = pct + '%';
+    volIcon.textContent = pct === 0 ? '🔇' : pct < 40 ? '🔉' : '🔊';
+  }
+
+  volSlider.addEventListener('input', () => {
+    state.volume = volSlider.value / 100;
+    save();
+    updateVolumeUI();
+  });
+
+  // 슬라이더에서 손을 떼면 미리듣기
+  volSlider.addEventListener('change', () => {
+    if (state.volume > 0) playDingDong();
+  });
+
+  // 아이콘 클릭 → 음소거 토글
+  let lastVolume = state.volume || 0.7;
+  volIcon.addEventListener('click', () => {
+    if (state.volume > 0) {
+      lastVolume = state.volume;
+      state.volume = 0;
+    } else {
+      state.volume = lastVolume;
+    }
+    save();
+    updateVolumeUI();
+  });
+
+  updateVolumeUI();
+  render();
+})();
+</script>
+</body>
+</html>

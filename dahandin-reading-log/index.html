@@ -1,0 +1,1066 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>📚 다했니 독서 기록장</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg: #fdf6ec;
+    --card: #ffffff;
+    --primary: #ff8a3d;
+    --primary-dark: #e8712a;
+    --accent: #7c5cff;
+    --text: #3d3229;
+    --text-soft: #8a7a6a;
+    --line: #f0e4d3;
+    --green: #3cb878;
+    --red: #e05a5a;
+    --shadow: 0 4px 14px rgba(160, 120, 70, 0.12);
+    --radius: 18px;
+  }
+
+  html, body { min-height: 100%; }
+
+  body {
+    font-family: 'Segoe UI', 'Malgun Gothic', '맑은 고딕', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.5;
+  }
+
+  .screen { display: none; }
+  .screen.active { display: block; }
+
+  /* ── 로그인 ───────────────────────────── */
+  #screen-login {
+    min-height: 100vh;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background: linear-gradient(160deg, #ffe9d2 0%, #fdf6ec 60%);
+  }
+  #screen-login.active { display: flex; }
+
+  .login-box {
+    background: var(--card);
+    border-radius: 24px;
+    box-shadow: var(--shadow);
+    padding: 40px 32px;
+    width: 100%;
+    max-width: 400px;
+    text-align: center;
+  }
+  .login-box .logo { font-size: 56px; }
+  .login-box h1 { font-size: 24px; margin: 12px 0 4px; }
+  .login-box p.sub { color: var(--text-soft); font-size: 14px; margin-bottom: 24px; }
+
+  .login-box input[type="text"] {
+    width: 100%;
+    padding: 14px 16px;
+    font-size: 17px;
+    border: 2px solid var(--line);
+    border-radius: 14px;
+    outline: none;
+    text-align: center;
+    transition: border-color .15s;
+  }
+  .login-box input[type="text"]:focus { border-color: var(--primary); }
+
+  .remember {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    margin: 14px 0 18px;
+    font-size: 14px;
+    color: var(--text-soft);
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .btn {
+    display: inline-block;
+    border: none;
+    cursor: pointer;
+    font-size: 16px;
+    font-weight: 700;
+    padding: 14px 24px;
+    border-radius: 14px;
+    background: var(--primary);
+    color: #fff;
+    width: 100%;
+    transition: transform .1s, background .15s;
+  }
+  .btn:hover { background: var(--primary-dark); }
+  .btn:active { transform: scale(.97); }
+  .btn:disabled { opacity: .5; cursor: wait; }
+  .btn.secondary { background: #f3ece1; color: var(--text); }
+  .btn.secondary:hover { background: #eadfcd; }
+  .btn.small { width: auto; padding: 8px 16px; font-size: 14px; }
+  .btn.danger { background: var(--red); }
+
+  .login-msg { min-height: 22px; font-size: 14px; color: var(--red); margin-top: 12px; }
+
+  .teacher-link {
+    margin-top: 20px;
+    font-size: 13px;
+    color: var(--text-soft);
+    background: none;
+    border: none;
+    cursor: pointer;
+    text-decoration: underline;
+  }
+
+  /* ── 공통 레이아웃 ─────────────────────── */
+  .app-header {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: rgba(253, 246, 236, .92);
+    backdrop-filter: blur(6px);
+    border-bottom: 1px solid var(--line);
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .app-header .who { font-weight: 700; font-size: 15px; }
+  .app-header .who small { color: var(--text-soft); font-weight: 400; }
+
+  .container { max-width: 720px; margin: 0 auto; padding: 16px 16px 90px; }
+
+  .tabbar {
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    background: #fff;
+    border-top: 1px solid var(--line);
+    display: flex;
+    z-index: 10;
+  }
+  .tabbar button {
+    flex: 1;
+    background: none;
+    border: none;
+    padding: 10px 4px 12px;
+    font-size: 12px;
+    color: var(--text-soft);
+    cursor: pointer;
+  }
+  .tabbar button .ico { display: block; font-size: 22px; margin-bottom: 2px; }
+  .tabbar button.on { color: var(--primary); font-weight: 700; }
+
+  .card {
+    background: var(--card);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 18px;
+    margin-bottom: 16px;
+  }
+  .card h2 { font-size: 16px; margin-bottom: 12px; display: flex; align-items: center; gap: 6px; }
+  .card h2 .spacer { flex: 1; }
+
+  /* ── 다했니 현황 카드 ──────────────────── */
+  .dh-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
+  .dh-cell {
+    background: var(--card);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 16px;
+    text-align: center;
+  }
+  .dh-cell .label { font-size: 13px; color: var(--text-soft); }
+  .dh-cell .value { font-size: 28px; font-weight: 800; margin-top: 2px; }
+  .cookie-bar {
+    height: 10px;
+    background: #f3ece1;
+    border-radius: 6px;
+    overflow: hidden;
+    margin-top: 10px;
+  }
+  .cookie-bar > div { height: 100%; background: var(--primary); border-radius: 6px; transition: width .4s; }
+  .dh-note { font-size: 12px; color: var(--text-soft); margin-top: 6px; }
+
+  .badges {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(88px, 1fr));
+    gap: 10px;
+  }
+  .badge {
+    text-align: center;
+    padding: 10px 6px;
+    border-radius: 14px;
+    background: #fff8ee;
+    border: 1px solid var(--line);
+  }
+  .badge img { width: 44px; height: 44px; object-fit: contain; border-radius: 50%; background: #fff; }
+  .badge .fallback { font-size: 36px; line-height: 44px; }
+  .badge .t { font-size: 12px; margin-top: 4px; word-break: keep-all; }
+  .badge.locked { filter: grayscale(1); opacity: .45; }
+  .badge.locked .t::after { content: " 🔒"; }
+
+  .dh-error {
+    background: #fff3f3;
+    border: 1px solid #f5cccc;
+    color: #a94442;
+    border-radius: var(--radius);
+    padding: 14px;
+    font-size: 14px;
+    margin-bottom: 16px;
+  }
+
+  /* ── 목표 ─────────────────────────────── */
+  .goal-row { display: flex; align-items: center; gap: 10px; }
+  .goal-bar { flex: 1; height: 14px; background: #f3ece1; border-radius: 8px; overflow: hidden; }
+  .goal-bar > div { height: 100%; background: var(--green); border-radius: 8px; transition: width .4s; }
+  .goal-num { font-weight: 800; font-size: 15px; white-space: nowrap; }
+  .goal-done { margin-top: 10px; font-weight: 700; color: var(--green); text-align: center; }
+
+  /* ── 기록 목록 ─────────────────────────── */
+  .rec {
+    display: flex;
+    gap: 12px;
+    padding: 14px 0;
+    border-bottom: 1px dashed var(--line);
+  }
+  .rec:last-child { border-bottom: none; }
+  .rec .emo { font-size: 30px; line-height: 1; }
+  .rec .body { flex: 1; min-width: 0; }
+  .rec .title { font-weight: 700; font-size: 15px; word-break: keep-all; }
+  .rec .meta { font-size: 12px; color: var(--text-soft); margin-top: 2px; }
+  .rec .review { font-size: 14px; margin-top: 6px; white-space: pre-wrap; word-break: break-word; }
+  .rec .stars { color: #f5b301; font-size: 13px; letter-spacing: 1px; }
+  .rec .acts { display: flex; flex-direction: column; gap: 6px; }
+  .rec .acts button {
+    background: #f3ece1; border: none; border-radius: 8px;
+    font-size: 12px; padding: 5px 10px; cursor: pointer; color: var(--text);
+  }
+  .rec .acts button:hover { background: #eadfcd; }
+
+  .empty { text-align: center; color: var(--text-soft); padding: 30px 10px; font-size: 14px; }
+  .empty .big { font-size: 44px; margin-bottom: 8px; }
+
+  .filters { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+  .filters input, .filters select {
+    padding: 9px 12px; border: 2px solid var(--line); border-radius: 12px;
+    font-size: 14px; outline: none; background: #fff;
+  }
+  .filters input:focus, .filters select:focus { border-color: var(--primary); }
+  .filters input { flex: 1; min-width: 140px; }
+
+  /* ── 기록 작성 폼 ──────────────────────── */
+  .form-grid { display: grid; gap: 12px; }
+  .form-grid label { font-size: 13px; font-weight: 700; display: block; margin-bottom: 4px; }
+  .form-grid input[type="text"], .form-grid input[type="date"], .form-grid textarea {
+    width: 100%; padding: 12px 14px; font-size: 15px;
+    border: 2px solid var(--line); border-radius: 12px; outline: none;
+    font-family: inherit; background: #fff;
+  }
+  .form-grid input:focus, .form-grid textarea:focus { border-color: var(--primary); }
+  .form-grid textarea { min-height: 90px; resize: vertical; }
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+  .star-pick { display: flex; gap: 4px; font-size: 32px; cursor: pointer; user-select: none; }
+  .star-pick span { color: #ddd2c2; transition: transform .1s; }
+  .star-pick span.on { color: #f5b301; }
+  .star-pick span:hover { transform: scale(1.15); }
+
+  .emoji-pick { display: flex; gap: 8px; flex-wrap: wrap; }
+  .emoji-pick button {
+    border: 2px solid var(--line); background: #fff; border-radius: 14px;
+    padding: 8px 10px; font-size: 14px; cursor: pointer; transition: all .12s;
+  }
+  .emoji-pick button .e { font-size: 22px; display: block; }
+  .emoji-pick button.on { border-color: var(--primary); background: #fff3e6; font-weight: 700; }
+
+  /* ── 통계 ─────────────────────────────── */
+  .stat-tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 16px; }
+  .stat-tile {
+    background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow);
+    padding: 14px 8px; text-align: center;
+  }
+  .stat-tile .v { font-size: 24px; font-weight: 800; }
+  .stat-tile .l { font-size: 12px; color: var(--text-soft); }
+
+  .chart { display: flex; align-items: flex-end; gap: 10px; height: 140px; padding-top: 10px; }
+  .chart .col { flex: 1; display: flex; flex-direction: column; align-items: center; height: 100%; justify-content: flex-end; }
+  .chart .bar { width: 70%; max-width: 46px; background: var(--accent); border-radius: 8px 8px 4px 4px; min-height: 3px; transition: height .4s; }
+  .chart .n { font-size: 12px; font-weight: 700; margin-bottom: 4px; }
+  .chart .m { font-size: 11px; color: var(--text-soft); margin-top: 6px; }
+
+  .cal { width: 100%; border-collapse: collapse; table-layout: fixed; }
+  .cal th { font-size: 12px; color: var(--text-soft); padding: 6px 0; font-weight: 400; }
+  .cal td { text-align: center; padding: 4px 0; font-size: 13px; height: 42px; }
+  .cal td .d { display: inline-flex; width: 34px; height: 34px; border-radius: 50%; align-items: center; justify-content: center; }
+  .cal td.stamp .d { background: #ffe9d2; font-weight: 700; }
+  .cal td.stamp .d::after { content: "📕"; font-size: 10px; margin-left: 1px; }
+  .cal td.today .d { outline: 2px solid var(--primary); }
+  .cal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+  .cal-head button { background: none; border: none; font-size: 18px; cursor: pointer; padding: 4px 10px; }
+
+  /* ── 교사 화면 ─────────────────────────── */
+  .class-item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 14px 0; border-bottom: 1px dashed var(--line);
+  }
+  .class-item:last-child { border-bottom: none; }
+  .class-item .cname { font-weight: 700; flex: 1; }
+  .class-item .cnum { font-size: 13px; color: var(--text-soft); text-align: right; }
+  .class-item .cnum b { color: var(--text); font-size: 16px; }
+
+  /* ── 모달 ─────────────────────────────── */
+  .modal-wrap {
+    display: none;
+    position: fixed; inset: 0; z-index: 50;
+    background: rgba(60, 40, 20, .45);
+    align-items: flex-end; justify-content: center;
+  }
+  .modal-wrap.open { display: flex; }
+  .modal {
+    background: var(--card);
+    border-radius: 22px 22px 0 0;
+    width: 100%; max-width: 720px;
+    max-height: 92vh; overflow-y: auto;
+    padding: 22px 18px 30px;
+  }
+  @media (min-width: 740px) {
+    .modal-wrap { align-items: center; padding: 20px; }
+    .modal { border-radius: 22px; }
+  }
+  .modal h2 { font-size: 18px; margin-bottom: 16px; }
+
+  .toast {
+    position: fixed; left: 50%; bottom: 76px; transform: translateX(-50%) translateY(20px);
+    background: var(--text); color: #fff; padding: 10px 20px; border-radius: 999px;
+    font-size: 14px; opacity: 0; pointer-events: none; transition: all .25s; z-index: 99;
+    white-space: nowrap;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  .celebrate {
+    position: fixed; inset: 0; z-index: 90; display: none;
+    align-items: center; justify-content: center; pointer-events: none;
+    font-size: 90px;
+  }
+  .celebrate.show { display: flex; animation: pop .9s ease; }
+  @keyframes pop {
+    0% { transform: scale(.2); opacity: 0; }
+    40% { transform: scale(1.3); opacity: 1; }
+    100% { transform: scale(1); opacity: 0; }
+  }
+
+  .footnote { font-size: 12px; color: var(--text-soft); text-align: center; margin-top: 8px; }
+</style>
+</head>
+<body>
+
+<!-- ═══════════ 로그인 화면 ═══════════ -->
+<div id="screen-login" class="screen active">
+  <div class="login-box">
+    <div class="logo">📚🍪</div>
+    <h1>다했니 독서 기록장</h1>
+    <p class="sub">학생 코드를 입력하면 바로 시작할 수 있어요!</p>
+    <input type="text" id="login-code" placeholder="학생 코드 입력" autocomplete="off"
+           onkeydown="if(event.key==='Enter')doLogin()">
+    <label class="remember">
+      <input type="checkbox" id="login-remember" checked> 이 기기에서 코드 기억하기
+    </label>
+    <button class="btn" id="login-btn" onclick="doLogin()">시작하기 🚀</button>
+    <div class="login-msg" id="login-msg"></div>
+    <button class="teacher-link" onclick="openTeacher()">👩‍🏫 선생님이신가요? (우리 반 쿠키 현황 보기)</button>
+  </div>
+</div>
+
+<!-- ═══════════ 학생 앱 ═══════════ -->
+<div id="screen-app" class="screen">
+  <header class="app-header">
+    <div class="who"><span id="who-name"></span> <small id="who-sub"></small></div>
+    <div style="display:flex; gap:8px;">
+      <button class="btn secondary small" onclick="refreshDahandin(true)">🔄 새로고침</button>
+      <button class="btn secondary small" onclick="logout()">로그아웃</button>
+    </div>
+  </header>
+
+  <div class="container">
+    <!-- 홈 탭 -->
+    <div id="tab-home">
+      <div class="dh-error" id="dh-error" style="display:none;"></div>
+
+      <div class="dh-grid">
+        <div class="dh-cell" style="grid-column: 1 / -1;">
+          <div class="label">🍪 남은 쿠키</div>
+          <div class="value" id="dh-total-cookie">-</div>
+          <div class="cookie-bar"><div id="dh-cookie-fill" style="width:0%"></div></div>
+          <div class="dh-note" id="dh-cookie-note">전체 - / 사용 -</div>
+        </div>
+        <div class="dh-cell">
+          <div class="label">🍫 초코칩</div>
+          <div class="value" id="dh-chips">-</div>
+        </div>
+        <div class="dh-cell">
+          <div class="label">📖 이번 달 읽은 책</div>
+          <div class="value" id="home-month-count">0권</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>🎯 이번 달 목표
+          <span class="spacer"></span>
+          <button class="btn secondary small" onclick="openGoalModal()">목표 정하기</button>
+        </h2>
+        <div id="goal-body"></div>
+      </div>
+
+      <div class="card">
+        <h2>🏅 내 뱃지 진열장</h2>
+        <div class="badges" id="dh-badges"><div class="empty">뱃지 정보를 불러오는 중...</div></div>
+      </div>
+
+      <div class="card">
+        <h2>🕐 최근 기록
+          <span class="spacer"></span>
+          <button class="btn small" onclick="openWriteModal()">✏️ 기록하기</button>
+        </h2>
+        <div id="recent-list"></div>
+      </div>
+    </div>
+
+    <!-- 기록장 탭 -->
+    <div id="tab-list" style="display:none;">
+      <div class="filters">
+        <input type="text" id="filter-q" placeholder="🔍 책 제목 검색" oninput="renderList()">
+        <select id="filter-month" onchange="renderList()"><option value="">전체 기간</option></select>
+        <select id="filter-star" onchange="renderList()">
+          <option value="">별점 전체</option>
+          <option value="5">★★★★★</option><option value="4">★★★★ 이상</option><option value="3">★★★ 이상</option>
+        </select>
+      </div>
+      <div class="card"><div id="full-list"></div></div>
+      <button class="btn" onclick="openWriteModal()">✏️ 새 기록 쓰기</button>
+    </div>
+
+    <!-- 통계 탭 -->
+    <div id="tab-stats" style="display:none;">
+      <div class="stat-tiles">
+        <div class="stat-tile"><div class="v" id="st-total">0</div><div class="l">누적 권수</div></div>
+        <div class="stat-tile"><div class="v" id="st-streak">0</div><div class="l">연속 기록일 🔥</div></div>
+        <div class="stat-tile"><div class="v" id="st-avg">-</div><div class="l">평균 별점</div></div>
+      </div>
+      <div class="card">
+        <h2>📊 월별 읽은 책</h2>
+        <div class="chart" id="st-chart"></div>
+      </div>
+      <div class="card">
+        <h2>📅 독서 달력</h2>
+        <div class="cal-head">
+          <button onclick="moveCal(-1)">◀</button>
+          <b id="cal-title"></b>
+          <button onclick="moveCal(1)">▶</button>
+        </div>
+        <table class="cal" id="cal-table"></table>
+      </div>
+    </div>
+  </div>
+
+  <nav class="tabbar">
+    <button id="tabbtn-home" class="on" onclick="showTab('home')"><span class="ico">🏠</span>홈</button>
+    <button id="tabbtn-list" onclick="showTab('list')"><span class="ico">📚</span>내 기록장</button>
+    <button id="tabbtn-stats" onclick="showTab('stats')"><span class="ico">📊</span>통계</button>
+  </nav>
+</div>
+
+<!-- ═══════════ 교사 화면 ═══════════ -->
+<div id="screen-teacher" class="screen">
+  <header class="app-header">
+    <div class="who">👩‍🏫 선생님 화면 <small>우리 반 쿠키 현황</small></div>
+    <button class="btn secondary small" onclick="closeTeacher()">← 돌아가기</button>
+  </header>
+  <div class="container">
+    <div class="card">
+      <h2>🏫 클래스 목록
+        <span class="spacer"></span>
+        <button class="btn secondary small" onclick="loadClasses(true)">🔄 새로고침</button>
+      </h2>
+      <div id="class-list"><div class="empty">불러오는 중...</div></div>
+    </div>
+    <p class="footnote">다했니 Open API의 클래스 목록(/get/class/list)을 조회합니다.</p>
+  </div>
+</div>
+
+<!-- ═══════════ 기록 작성 모달 ═══════════ -->
+<div class="modal-wrap" id="write-modal">
+  <div class="modal">
+    <h2 id="write-title">✏️ 독서 기록 쓰기</h2>
+    <div class="form-grid">
+      <div>
+        <label>책 제목 *</label>
+        <input type="text" id="w-title" placeholder="예: 마당을 나온 암탉" maxlength="100">
+      </div>
+      <div class="row2">
+        <div>
+          <label>지은이</label>
+          <input type="text" id="w-author" placeholder="예: 황선미" maxlength="50">
+        </div>
+        <div>
+          <label>읽은 날짜</label>
+          <input type="date" id="w-date">
+        </div>
+      </div>
+      <div>
+        <label>별점</label>
+        <div class="star-pick" id="w-stars"></div>
+      </div>
+      <div>
+        <label>어땠나요? (스티커 하나만 골라도 돼요!)</label>
+        <div class="emoji-pick" id="w-emoji"></div>
+      </div>
+      <div>
+        <label>감상문 (선택)</label>
+        <textarea id="w-review" placeholder="기억에 남는 장면, 느낀 점을 자유롭게 써 보세요." maxlength="2000"></textarea>
+      </div>
+      <div class="row2">
+        <button class="btn secondary" onclick="closeWriteModal()">취소</button>
+        <button class="btn" onclick="saveRecord()">저장하기 💾</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ 목표 설정 모달 ═══════════ -->
+<div class="modal-wrap" id="goal-modal">
+  <div class="modal">
+    <h2>🎯 이번 달 독서 목표</h2>
+    <div class="form-grid">
+      <div>
+        <label>이번 달에 몇 권을 읽어 볼까요?</label>
+        <input type="text" id="g-count" inputmode="numeric" placeholder="예: 5">
+      </div>
+      <div class="row2">
+        <button class="btn secondary" onclick="closeModal('goal-modal')">취소</button>
+        <button class="btn" onclick="saveGoal()">저장 🎯</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<div class="celebrate" id="celebrate">🎉</div>
+
+<script>
+"use strict";
+
+/* ═══════════════ 설정 ═══════════════ */
+const API_BASE = "https://api.dahandin.com/openapi/v1";
+const API_KEY = "b159bfca3932ee140597298690dc331cc6041afdf15c5b4e";
+const STUDENT_CACHE_TTL = 5 * 60 * 1000;   // 학생 정보 캐시 5분
+const CLASS_CACHE_TTL = 10 * 60 * 1000;    // 클래스 목록 캐시 10분
+const EMOJIS = [
+  { e: "😆", t: "재밌어요" }, { e: "🥰", t: "감동이에요" }, { e: "😮", t: "놀라워요" },
+  { e: "😢", t: "슬퍼요" }, { e: "🤔", t: "생각하게 돼요" }, { e: "😴", t: "지루했어요" }
+];
+
+/* ═══════════════ 상태 ═══════════════ */
+let session = null;        // { code, name, number }
+let records = [];          // 현재 학생의 독서 기록
+let editingId = null;      // 수정 중인 기록 id
+let pickedStars = 0;
+let pickedEmoji = "";
+let calCursor = new Date(); // 독서 달력 표시 월
+let lastApiCall = 0;       // 간단한 클라이언트 스로틀
+
+/* ═══════════════ 유틸 ═══════════════ */
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const ym = d => d.slice(0, 7);
+const todayStr = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+};
+
+function toast(msg) {
+  const t = $("toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  clearTimeout(t._tm);
+  t._tm = setTimeout(() => t.classList.remove("show"), 2200);
+}
+
+function lsGet(key, fallback) {
+  try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : fallback; }
+  catch { return fallback; }
+}
+function lsSet(key, val) { localStorage.setItem(key, JSON.stringify(val)); }
+
+/* ═══════════════ 다했니 API ═══════════════ */
+async function apiGet(path, params) {
+  // 초당 5회 제한 대응: 호출 간 최소 250ms 간격 유지
+  const wait = Math.max(0, lastApiCall + 250 - Date.now());
+  if (wait) await new Promise(r => setTimeout(r, wait));
+  lastApiCall = Date.now();
+
+  const url = new URL(API_BASE + path);
+  Object.entries(params || {}).forEach(([k, v]) => url.searchParams.set(k, v));
+
+  const res = await fetch(url, { method: "GET", headers: { "X-API-Key": API_KEY } });
+  let json;
+  try { json = await res.json(); }
+  catch { throw new Error("응답을 해석할 수 없어요. 잠시 후 다시 시도해 주세요."); }
+
+  if (res.status === 429 || (json && json.result === false && /slow/i.test(json.message || ""))) {
+    throw new Error("요청이 너무 많아요. 잠시 후 다시 시도해 주세요. 🐢");
+  }
+  return json;
+}
+
+// 재시도(지수 백오프) 래퍼
+async function apiGetRetry(path, params, tries = 3) {
+  let delay = 1000;
+  for (let i = 0; i < tries; i++) {
+    try { return await apiGet(path, params); }
+    catch (e) {
+      if (i === tries - 1) throw e;
+      await new Promise(r => setTimeout(r, delay));
+      delay *= 2;
+    }
+  }
+}
+
+async function fetchStudent(code, force = false) {
+  const key = "drl_cache_student_" + code;
+  const cached = lsGet(key, null);
+  if (!force && cached && Date.now() - cached.ts < STUDENT_CACHE_TTL) return cached.data;
+  const json = await apiGetRetry("/get/student/total", { code });
+  if (json.result === true && json.data) {
+    lsSet(key, { ts: Date.now(), data: json.data });
+    return json.data;
+  }
+  const err = new Error(json.message || "학생 정보를 불러오지 못했어요.");
+  err.apiFail = true;
+  throw err;
+}
+
+/* ═══════════════ 로그인 ═══════════════ */
+async function doLogin() {
+  const code = $("login-code").value.trim();
+  const msg = $("login-msg");
+  msg.textContent = "";
+  if (!code) { msg.textContent = "학생 코드를 입력해 주세요!"; return; }
+
+  const btn = $("login-btn");
+  btn.disabled = true;
+  btn.textContent = "확인 중...";
+  try {
+    const data = await fetchStudent(code, true);
+    session = { code, name: data.name, number: data.number };
+    lsSet("drl_session", session);
+    if ($("login-remember").checked) lsSet("drl_remember_code", code);
+    else localStorage.removeItem("drl_remember_code");
+    enterApp(data);
+  } catch (e) {
+    msg.textContent = e.apiFail
+      ? "학생 코드를 다시 확인해 주세요! (" + e.message + ")"
+      : "연결에 실패했어요. 인터넷 상태를 확인해 주세요. (" + e.message + ")";
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "시작하기 🚀";
+  }
+}
+
+function logout() {
+  session = null;
+  localStorage.removeItem("drl_session");
+  showScreen("screen-login");
+}
+
+function enterApp(studentData) {
+  $("who-name").textContent = session.name + " 님";
+  $("who-sub").textContent = session.number ? `(${session.number}번)` : "";
+  records = lsGet("drl_records_" + session.code, []);
+  showScreen("screen-app");
+  showTab("home");
+  renderDahandin(studentData);
+  renderAll();
+}
+
+function showScreen(id) {
+  document.querySelectorAll(".screen").forEach(s => s.classList.remove("active"));
+  $(id).classList.add("active");
+}
+
+/* ═══════════════ 다했니 현황 렌더 ═══════════════ */
+function renderDahandin(d) {
+  $("dh-error").style.display = "none";
+  const cookie = Number(d.cookie) || 0;
+  const used = Number(d.usedCookie) || 0;
+  const total = d.totalCookie != null ? Number(d.totalCookie) : cookie - used;
+
+  $("dh-total-cookie").textContent = total + "개";
+  $("dh-cookie-fill").style.width = cookie > 0 ? Math.min(100, (total / cookie) * 100) + "%" : "0%";
+  $("dh-cookie-note").textContent = `전체 ${cookie}개 / 사용 ${used}개`;
+  $("dh-chips").textContent = (Number(d.chocoChips) || 0) + "개";
+
+  const wrap = $("dh-badges");
+  const badges = d.badges ? Object.values(d.badges) : [];
+  if (!badges.length) {
+    wrap.innerHTML = '<div class="empty">아직 등록된 뱃지가 없어요.</div>';
+    return;
+  }
+  wrap.innerHTML = badges.map(b => `
+    <div class="badge ${b.hasBadge ? "" : "locked"}" title="${esc(b.title)}">
+      ${b.imgUrl
+        ? `<img src="${esc(b.imgUrl)}" alt="${esc(b.title)}" onerror="this.outerHTML='<div class=fallback>🏅</div>'">`
+        : '<div class="fallback">🏅</div>'}
+      <div class="t">${esc(b.title)}</div>
+    </div>`).join("");
+}
+
+function renderDahandinError(message) {
+  const box = $("dh-error");
+  box.style.display = "block";
+  box.textContent = "🙈 다했니 정보를 불러오지 못했어요 — 독서 기록은 계속 쓸 수 있어요! (" + message + ")";
+}
+
+let refreshing = false;
+async function refreshDahandin(force) {
+  if (!session || refreshing) return;
+  refreshing = true;
+  try {
+    const d = await fetchStudent(session.code, force);
+    renderDahandin(d);
+    if (force) toast("다했니 정보를 새로 불러왔어요! 🍪");
+  } catch (e) {
+    renderDahandinError(e.message);
+  } finally {
+    refreshing = false;
+  }
+}
+
+/* ═══════════════ 탭 ═══════════════ */
+function showTab(name) {
+  ["home", "list", "stats"].forEach(t => {
+    $("tab-" + t).style.display = t === name ? "" : "none";
+    $("tabbtn-" + t).classList.toggle("on", t === name);
+  });
+  if (name === "list") renderList();
+  if (name === "stats") renderStats();
+}
+
+/* ═══════════════ 기록 CRUD ═══════════════ */
+function persistRecords() { lsSet("drl_records_" + session.code, records); }
+
+function openWriteModal(id) {
+  editingId = id || null;
+  const r = id ? records.find(x => x.id === id) : null;
+  $("write-title").textContent = r ? "✏️ 기록 고치기" : "✏️ 독서 기록 쓰기";
+  $("w-title").value = r ? r.title : "";
+  $("w-author").value = r ? r.author : "";
+  $("w-date").value = r ? r.date : todayStr();
+  $("w-review").value = r ? r.review : "";
+  pickedStars = r ? r.rating : 0;
+  pickedEmoji = r ? r.emoji : "";
+  renderStarPick();
+  renderEmojiPick();
+  $("write-modal").classList.add("open");
+  setTimeout(() => $("w-title").focus(), 50);
+}
+function closeWriteModal() { $("write-modal").classList.remove("open"); }
+function closeModal(id) { $(id).classList.remove("open"); }
+
+function renderStarPick() {
+  $("w-stars").innerHTML = [1, 2, 3, 4, 5].map(n =>
+    `<span class="${n <= pickedStars ? "on" : ""}" onclick="pickedStars=${n};renderStarPick()">★</span>`).join("");
+}
+function renderEmojiPick() {
+  $("w-emoji").innerHTML = EMOJIS.map(x =>
+    `<button type="button" class="${pickedEmoji === x.e ? "on" : ""}"
+       onclick="pickedEmoji=pickedEmoji==='${x.e}'?'':'${x.e}';renderEmojiPick()">
+       <span class="e">${x.e}</span>${x.t}</button>`).join("");
+}
+
+function saveRecord() {
+  const title = $("w-title").value.trim();
+  if (!title) { toast("책 제목을 입력해 주세요! 📖"); $("w-title").focus(); return; }
+  const rec = {
+    id: editingId || (Date.now().toString(36) + Math.random().toString(36).slice(2, 6)),
+    title,
+    author: $("w-author").value.trim(),
+    date: $("w-date").value || todayStr(),
+    rating: pickedStars,
+    emoji: pickedEmoji,
+    review: $("w-review").value.trim(),
+    createdAt: editingId ? (records.find(x => x.id === editingId)?.createdAt || Date.now()) : Date.now()
+  };
+  const beforeMonthCount = monthCount(ym(todayStr()));
+  if (editingId) {
+    records = records.map(x => x.id === editingId ? rec : x);
+    toast("기록을 고쳤어요! ✏️");
+  } else {
+    records.push(rec);
+    toast("기록 완료! 참 잘했어요 🎉");
+  }
+  persistRecords();
+  closeWriteModal();
+  renderAll();
+
+  // 목표 달성 순간 축하
+  const goal = getGoal();
+  if (!editingId && goal > 0 && beforeMonthCount < goal && monthCount(ym(todayStr())) >= goal) {
+    const c = $("celebrate");
+    c.classList.add("show");
+    setTimeout(() => c.classList.remove("show"), 900);
+    setTimeout(() => toast("🎯 이번 달 목표 달성! 선생님께 자랑해 보세요!"), 300);
+  }
+}
+
+function deleteRecord(id) {
+  const r = records.find(x => x.id === id);
+  if (!r) return;
+  if (!confirm(`『${r.title}』 기록을 지울까요?`)) return;
+  records = records.filter(x => x.id !== id);
+  persistRecords();
+  renderAll();
+  toast("기록을 지웠어요.");
+}
+
+/* ═══════════════ 목표 ═══════════════ */
+function goalKey() { return "drl_goal_" + session.code + "_" + ym(todayStr()); }
+function getGoal() { return lsGet(goalKey(), 0); }
+function monthCount(month) { return records.filter(r => ym(r.date) === month).length; }
+
+function openGoalModal() {
+  $("g-count").value = getGoal() || "";
+  $("goal-modal").classList.add("open");
+  setTimeout(() => $("g-count").focus(), 50);
+}
+function saveGoal() {
+  const n = parseInt($("g-count").value, 10);
+  if (!n || n < 1 || n > 999) { toast("1권부터 999권 사이로 정해 주세요!"); return; }
+  lsSet(goalKey(), n);
+  closeModal("goal-modal");
+  renderGoal();
+  toast(`이번 달 목표: ${n}권! 화이팅 🎯`);
+}
+
+function renderGoal() {
+  const goal = getGoal();
+  const done = monthCount(ym(todayStr()));
+  const body = $("goal-body");
+  if (!goal) {
+    body.innerHTML = '<div class="empty" style="padding:14px;">아직 목표가 없어요.<br>"목표 정하기"를 눌러 이번 달 목표를 세워 보세요!</div>';
+    return;
+  }
+  const pct = Math.min(100, Math.round((done / goal) * 100));
+  body.innerHTML = `
+    <div class="goal-row">
+      <div class="goal-bar"><div style="width:${pct}%"></div></div>
+      <div class="goal-num">${done} / ${goal}권</div>
+    </div>
+    ${done >= goal ? '<div class="goal-done">🎉 목표 달성! 정말 대단해요!</div>' : ""}`;
+}
+
+/* ═══════════════ 목록 렌더 ═══════════════ */
+function starsHtml(n) { return n ? `<span class="stars">${"★".repeat(n)}${"☆".repeat(5 - n)}</span>` : ""; }
+
+function recHtml(r, withActs) {
+  return `
+    <div class="rec">
+      <div class="emo">${r.emoji || "📖"}</div>
+      <div class="body">
+        <div class="title">${esc(r.title)}</div>
+        <div class="meta">${esc(r.author || "")}${r.author ? " · " : ""}${r.date} ${starsHtml(r.rating)}</div>
+        ${r.review ? `<div class="review">${esc(r.review)}</div>` : ""}
+      </div>
+      ${withActs ? `
+      <div class="acts">
+        <button onclick="openWriteModal('${r.id}')">고치기</button>
+        <button onclick="deleteRecord('${r.id}')">지우기</button>
+      </div>` : ""}
+    </div>`;
+}
+
+function sortedRecords() {
+  return [...records].sort((a, b) => b.date.localeCompare(a.date) || b.createdAt - a.createdAt);
+}
+
+function renderRecent() {
+  const list = sortedRecords().slice(0, 3);
+  $("recent-list").innerHTML = list.length
+    ? list.map(r => recHtml(r, false)).join("")
+    : '<div class="empty"><div class="big">🌱</div>첫 번째 독서 기록을 남겨 보세요!</div>';
+  $("home-month-count").textContent = monthCount(ym(todayStr())) + "권";
+}
+
+function renderList() {
+  // 월 필터 옵션 갱신
+  const months = [...new Set(records.map(r => ym(r.date)))].sort().reverse();
+  const sel = $("filter-month");
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">전체 기간</option>' +
+    months.map(m => `<option value="${m}" ${m === cur ? "selected" : ""}>${m.replace("-", "년 ")}월</option>`).join("");
+
+  const q = $("filter-q").value.trim().toLowerCase();
+  const fm = sel.value;
+  const fs = parseInt($("filter-star").value, 10) || 0;
+  const list = sortedRecords().filter(r =>
+    (!q || r.title.toLowerCase().includes(q) || (r.author || "").toLowerCase().includes(q)) &&
+    (!fm || ym(r.date) === fm) &&
+    (!fs || r.rating >= fs));
+
+  $("full-list").innerHTML = list.length
+    ? list.map(r => recHtml(r, true)).join("")
+    : '<div class="empty"><div class="big">🔍</div>조건에 맞는 기록이 없어요.</div>';
+}
+
+/* ═══════════════ 통계 ═══════════════ */
+function calcStreak() {
+  const days = new Set(records.map(r => r.date));
+  let streak = 0;
+  const d = new Date();
+  // 오늘 기록이 없으면 어제부터 세기 시작 (오늘은 아직 안 썼을 수 있으니까)
+  if (!days.has(todayStr())) d.setDate(d.getDate() - 1);
+  for (;;) {
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    if (!days.has(key)) break;
+    streak++;
+    d.setDate(d.getDate() - 1);
+  }
+  return streak;
+}
+
+function renderStats() {
+  $("st-total").textContent = records.length;
+  $("st-streak").textContent = calcStreak();
+  const rated = records.filter(r => r.rating > 0);
+  $("st-avg").textContent = rated.length
+    ? (rated.reduce((s, r) => s + r.rating, 0) / rated.length).toFixed(1) + "★" : "-";
+
+  // 최근 6개월 막대 그래프
+  const cols = [];
+  const base = new Date();
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(base.getFullYear(), base.getMonth() - i, 1);
+    const m = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    cols.push({ m, label: (d.getMonth() + 1) + "월", n: monthCount(m) });
+  }
+  const max = Math.max(1, ...cols.map(c => c.n));
+  $("st-chart").innerHTML = cols.map(c => `
+    <div class="col">
+      <div class="n">${c.n || ""}</div>
+      <div class="bar" style="height:${(c.n / max) * 100}%"></div>
+      <div class="m">${c.label}</div>
+    </div>`).join("");
+
+  renderCalendar();
+}
+
+function moveCal(delta) {
+  calCursor = new Date(calCursor.getFullYear(), calCursor.getMonth() + delta, 1);
+  renderCalendar();
+}
+
+function renderCalendar() {
+  const y = calCursor.getFullYear(), m = calCursor.getMonth();
+  $("cal-title").textContent = `${y}년 ${m + 1}월`;
+  const days = new Set(records.map(r => r.date));
+  const first = new Date(y, m, 1).getDay();
+  const last = new Date(y, m + 1, 0).getDate();
+  const td = todayStr();
+
+  let html = "<tr>" + ["일", "월", "화", "수", "목", "금", "토"].map(d => `<th>${d}</th>`).join("") + "</tr><tr>";
+  for (let i = 0; i < first; i++) html += "<td></td>";
+  for (let day = 1; day <= last; day++) {
+    const key = `${y}-${String(m + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+    const cls = [days.has(key) ? "stamp" : "", key === td ? "today" : ""].join(" ");
+    html += `<td class="${cls}"><span class="d">${day}</span></td>`;
+    if ((first + day) % 7 === 0 && day !== last) html += "</tr><tr>";
+  }
+  html += "</tr>";
+  $("cal-table").innerHTML = html;
+}
+
+function renderAll() {
+  renderRecent();
+  renderGoal();
+  if ($("tab-list").style.display !== "none") renderList();
+  if ($("tab-stats").style.display !== "none") renderStats();
+}
+
+/* ═══════════════ 교사 화면 ═══════════════ */
+function openTeacher() {
+  showScreen("screen-teacher");
+  loadClasses(false);
+}
+function closeTeacher() {
+  showScreen(session ? "screen-app" : "screen-login");
+}
+
+async function loadClasses(force) {
+  const box = $("class-list");
+  const cached = lsGet("drl_cache_classes", null);
+  if (!force && cached && Date.now() - cached.ts < CLASS_CACHE_TTL) {
+    renderClasses(cached.data);
+    return;
+  }
+  box.innerHTML = '<div class="empty">불러오는 중... 🐢</div>';
+  try {
+    const json = await apiGetRetry("/get/class/list");
+    if (json.result !== true) throw new Error(json.message || "클래스 목록을 불러오지 못했어요.");
+    lsSet("drl_cache_classes", { ts: Date.now(), data: json.data || [] });
+    renderClasses(json.data || []);
+  } catch (e) {
+    box.innerHTML = `<div class="empty">😢 불러오기 실패<br><small>${esc(e.message)}</small></div>`;
+  }
+}
+
+function renderClasses(list) {
+  const box = $("class-list");
+  if (!list.length) {
+    box.innerHTML = '<div class="empty">등록된 클래스가 없어요.</div>';
+    return;
+  }
+  box.innerHTML = list.map(c => `
+    <div class="class-item">
+      <div style="font-size:26px;">🏫</div>
+      <div class="cname">${esc(c.name)}</div>
+      <div class="cnum">
+        🍪 남은 쿠키 <b>${Number(c.cookies) || 0}</b><br>
+        전체 ${Number(c.totalCookies) || 0} · 사용 ${Number(c.usedCookies) || 0}
+      </div>
+    </div>`).join("");
+}
+
+/* ═══════════════ 시작 ═══════════════ */
+(function init() {
+  $("w-date").value = todayStr();
+
+  // 모달 바깥 클릭 시 닫기
+  document.querySelectorAll(".modal-wrap").forEach(w =>
+    w.addEventListener("click", e => { if (e.target === w) w.classList.remove("open"); }));
+
+  // 코드 기억하기 / 자동 로그인
+  const saved = lsGet("drl_session", null);
+  const remembered = lsGet("drl_remember_code", null);
+  if (remembered) $("login-code").value = remembered;
+
+  if (saved && remembered && saved.code === remembered) {
+    // 캐시된 정보로 즉시 입장 후 백그라운드 갱신
+    session = saved;
+    const cache = lsGet("drl_cache_student_" + saved.code, null);
+    if (cache) {
+      enterApp(cache.data);
+      refreshDahandin(false);
+      return;
+    }
+    // 캐시가 없으면 API로 재검증
+    fetchStudent(saved.code, true)
+      .then(d => { enterApp(d); })
+      .catch(() => { showScreen("screen-login"); });
+  }
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,1056 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🏫 학급도구 - Classroom Tools</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  /* ── 커스텀 스크롤바 ───────────────────── */
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 9999px; }
+  ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+  /* ── 로딩 스피너 ───────────────────────── */
+  .spinner {
+    width: 64px; height: 64px;
+    border: 8px solid #fef3c7;
+    border-top-color: #facc15;
+    border-radius: 50%;
+    animation: spin 0.9s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── 랜덤뽑기 Pop 애니메이션 ───────────── */
+  @keyframes popIn {
+    0%   { transform: scale(0.2); opacity: 0; }
+    60%  { transform: scale(1.25); opacity: 1; }
+    100% { transform: scale(1); opacity: 1; }
+  }
+  .pop-in { animation: popIn 0.55s cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+
+  /* ── 폭죽/반짝이 파티클 ────────────────── */
+  .confetti-piece {
+    position: fixed;
+    pointer-events: none;
+    z-index: 9999;
+    animation: confettiFly var(--dur) cubic-bezier(0.15, 0.6, 0.4, 1) forwards;
+  }
+  @keyframes confettiFly {
+    0% {
+      transform: translate(0, 0) rotate(0deg) scale(1);
+      opacity: 1;
+    }
+    100% {
+      transform: translate(var(--tx), var(--ty)) rotate(var(--rot)) scale(0.4);
+      opacity: 0;
+    }
+  }
+
+  /* ── 메모장 에디터 ─────────────────────── */
+  #memoEditor { min-height: 300px; outline: none; }
+  #memoEditor:empty::before {
+    content: '내용을 입력하세요...';
+    color: #9ca3af;
+  }
+
+  /* ── 타이머 깜빡임 ─────────────────────── */
+  @keyframes blink { 50% { opacity: 0.25; } }
+  .timer-finished { animation: blink 0.8s step-start infinite; }
+
+  /* 탭 전환 페이드 */
+  .tab-panel { animation: fadeIn 0.25s ease both; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+  textarea { resize: none; }
+</style>
+</head>
+<body class="bg-gray-100 font-sans text-gray-800 min-h-screen flex flex-col">
+
+<!-- ══════════════ 로딩 스크린 ══════════════ -->
+<div id="loadingScreen" class="fixed inset-0 z-[10000] bg-gray-100 flex flex-col items-center justify-center gap-5 transition-opacity duration-500">
+  <div class="spinner"></div>
+  <p class="text-gray-500 font-semibold tracking-wide">학급도구를 준비하고 있어요...</p>
+</div>
+
+<!-- ══════════════ 헤더 & 네비게이션 ══════════════ -->
+<header class="bg-white shadow-lg sticky top-0 z-40">
+  <div class="max-w-5xl mx-auto px-4">
+    <div class="flex items-center justify-between pt-4">
+      <h1 class="text-xl sm:text-2xl font-extrabold flex items-center gap-2 select-none">
+        <span>🏫</span><span>학급도구</span>
+      </h1>
+      <span class="text-xs text-gray-400 hidden sm:block">Classroom Tools</span>
+    </div>
+    <nav class="flex gap-1 sm:gap-4 overflow-x-auto mt-2 -mb-px" id="tabNav">
+      <button data-tab="timetable" class="tab-btn shrink-0 px-3 sm:px-5 py-3 font-bold text-sm sm:text-base border-b-4 border-transparent text-gray-500 hover:text-blue-500 transition-colors duration-200">🗓️ 시간표</button>
+      <button data-tab="picker" class="tab-btn shrink-0 px-3 sm:px-5 py-3 font-bold text-sm sm:text-base border-b-4 border-transparent text-gray-500 hover:text-blue-500 transition-colors duration-200">🎲 랜덤뽑기</button>
+      <button data-tab="notepad" class="tab-btn shrink-0 px-3 sm:px-5 py-3 font-bold text-sm sm:text-base border-b-4 border-transparent text-gray-500 hover:text-blue-500 transition-colors duration-200">📝 메모장</button>
+      <button data-tab="timer" class="tab-btn shrink-0 px-3 sm:px-5 py-3 font-bold text-sm sm:text-base border-b-4 border-transparent text-gray-500 hover:text-blue-500 transition-colors duration-200">⏳ 타이머</button>
+    </nav>
+  </div>
+</header>
+
+<main class="flex-1 w-full max-w-5xl mx-auto px-3 sm:px-4 py-5 sm:py-8">
+
+  <!-- ══════════════ 1. 시간표 ══════════════ -->
+  <section id="panel-timetable" class="tab-panel hidden">
+    <div class="bg-white rounded-3xl shadow-lg p-4 sm:p-6">
+      <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+        <h2 class="text-lg sm:text-xl font-extrabold">🗓️ 우리 반 시간표</h2>
+        <div class="flex gap-2">
+          <button id="ttEditBtn" class="px-4 py-2 rounded-xl font-bold text-sm bg-blue-500 text-white shadow hover:bg-blue-600 active:scale-95 transition-all duration-200">⚙️ 설정 모드</button>
+        </div>
+      </div>
+
+      <!-- 일괄 설정 바 (설정 모드에서만 표시) -->
+      <div id="ttBulkBar" class="hidden flex-wrap items-center gap-2 mb-4 p-3 bg-blue-50 border border-blue-200 rounded-2xl text-sm">
+        <button id="ttSelectAll" class="px-3 py-1.5 rounded-lg bg-white border border-gray-300 font-semibold hover:bg-gray-50 active:scale-95 transition-all">✅ 전체선택</button>
+        <button id="ttDeselectAll" class="px-3 py-1.5 rounded-lg bg-white border border-gray-300 font-semibold hover:bg-gray-50 active:scale-95 transition-all">⬜ 해제</button>
+        <span class="w-px h-6 bg-blue-200 mx-1 hidden sm:block"></span>
+        <span class="font-semibold text-blue-700">색상:</span>
+        <button data-color="#1f2937" class="tt-color-btn w-8 h-8 rounded-full shadow active:scale-90 transition-transform" style="background:#1f2937" title="검정"></button>
+        <button data-color="#2563eb" class="tt-color-btn w-8 h-8 rounded-full shadow active:scale-90 transition-transform" style="background:#2563eb" title="파랑"></button>
+        <button data-color="#dc2626" class="tt-color-btn w-8 h-8 rounded-full shadow active:scale-90 transition-transform" style="background:#dc2626" title="빨강"></button>
+        <span class="w-px h-6 bg-blue-200 mx-1 hidden sm:block"></span>
+        <button id="ttLockBtn" class="px-3 py-1.5 rounded-lg bg-white border border-gray-300 font-semibold hover:bg-gray-50 active:scale-95 transition-all">🔒 고정</button>
+        <button id="ttUnlockBtn" class="px-3 py-1.5 rounded-lg bg-white border border-gray-300 font-semibold hover:bg-gray-50 active:scale-95 transition-all">🔓 고정해제</button>
+        <span class="flex-1"></span>
+        <button id="ttClearAllBtn" class="px-3 py-1.5 rounded-lg bg-red-500 text-white font-semibold shadow hover:bg-red-600 active:scale-95 transition-all">🗑️ 전체 삭제</button>
+      </div>
+
+      <div class="overflow-x-auto rounded-2xl border border-gray-200">
+        <table class="w-full border-collapse min-w-[560px]" id="ttTable">
+          <thead>
+            <tr>
+              <th class="bg-yellow-200 border border-yellow-300 p-2 sm:p-3 text-sm font-extrabold w-16">교시</th>
+              <th class="bg-yellow-200 border border-yellow-300 p-2 sm:p-3 text-sm font-extrabold">월</th>
+              <th class="bg-yellow-200 border border-yellow-300 p-2 sm:p-3 text-sm font-extrabold">화</th>
+              <th class="bg-yellow-200 border border-yellow-300 p-2 sm:p-3 text-sm font-extrabold">수</th>
+              <th class="bg-yellow-200 border border-yellow-300 p-2 sm:p-3 text-sm font-extrabold">목</th>
+              <th class="bg-yellow-200 border border-yellow-300 p-2 sm:p-3 text-sm font-extrabold">금</th>
+            </tr>
+          </thead>
+          <tbody id="ttBody"><!-- JS 렌더링 --></tbody>
+        </table>
+      </div>
+      <p id="ttHint" class="hidden text-xs text-gray-400 mt-3">💡 설정 모드에서는 방향키(↑↓←→)로 엑셀처럼 칸을 이동할 수 있어요. 🔒 고정된 칸은 전체 삭제 시 보호됩니다.</p>
+    </div>
+  </section>
+
+  <!-- 시간표: 전체 삭제 모달 -->
+  <div id="ttClearModal" class="hidden fixed inset-0 z-[100] items-center justify-center bg-black/50 p-4">
+    <div class="bg-white rounded-3xl shadow-2xl p-6 sm:p-8 w-full max-w-sm text-center transform transition-all">
+      <div class="text-5xl mb-3">🗑️</div>
+      <h3 class="text-lg font-extrabold mb-2">시간표 전체 삭제</h3>
+      <p class="text-sm text-gray-500 mb-6">🔒 자물쇠로 고정된 칸을 어떻게 할까요?</p>
+      <div class="flex flex-col gap-2">
+        <button id="ttClearKeepLocked" class="w-full py-3 rounded-xl bg-blue-500 text-white font-bold shadow hover:bg-blue-600 active:scale-95 transition-all">🔒 고정된 칸은 남기고 삭제</button>
+        <button id="ttClearEverything" class="w-full py-3 rounded-xl bg-red-500 text-white font-bold shadow hover:bg-red-600 active:scale-95 transition-all">💥 고정 포함 모두 삭제</button>
+        <button id="ttClearCancel" class="w-full py-3 rounded-xl bg-gray-100 text-gray-600 font-bold hover:bg-gray-200 active:scale-95 transition-all">취소</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════ 2. 랜덤뽑기 ══════════════ -->
+  <section id="panel-picker" class="tab-panel hidden">
+    <div class="bg-white rounded-3xl shadow-lg p-4 sm:p-6">
+      <h2 class="text-lg sm:text-xl font-extrabold mb-4">🎲 번호 랜덤뽑기</h2>
+
+      <!-- 설정 영역 -->
+      <div class="flex flex-wrap items-end gap-3 p-4 bg-gray-50 rounded-2xl border border-gray-200 mb-6">
+        <label class="flex flex-col gap-1 text-xs font-bold text-gray-500">
+          시작 번호
+          <input id="pkStart" type="number" min="1" max="998" value="1" class="w-24 px-3 py-2 rounded-xl border border-gray-300 text-base font-bold text-center focus:ring-2 focus:ring-blue-400 focus:border-blue-400 outline-none transition-all">
+        </label>
+        <label class="flex flex-col gap-1 text-xs font-bold text-gray-500">
+          끝 번호
+          <input id="pkEnd" type="number" min="2" max="999" value="30" class="w-24 px-3 py-2 rounded-xl border border-gray-300 text-base font-bold text-center focus:ring-2 focus:ring-blue-400 focus:border-blue-400 outline-none transition-all">
+        </label>
+        <label class="flex flex-col gap-1 text-xs font-bold text-gray-500">
+          뽑을 개수
+          <input id="pkCount" type="number" min="1" max="99" value="1" class="w-24 px-3 py-2 rounded-xl border border-gray-300 text-base font-bold text-center focus:ring-2 focus:ring-blue-400 focus:border-blue-400 outline-none transition-all">
+        </label>
+        <div class="flex gap-2 ml-auto">
+          <button id="pkDrawBtn" class="px-6 py-3 rounded-xl bg-blue-500 text-white font-extrabold shadow-lg hover:bg-blue-600 hover:shadow-xl active:scale-95 transition-all duration-200">🎉 뽑기!</button>
+          <button id="pkResetBtn" class="px-4 py-3 rounded-xl bg-gray-200 text-gray-600 font-bold hover:bg-gray-300 active:scale-95 transition-all duration-200">↺ 초기화</button>
+        </div>
+      </div>
+
+      <!-- 결과 표시 -->
+      <div id="pkResult" class="min-h-[160px] sm:min-h-[200px] flex flex-wrap items-center justify-center gap-x-6 gap-y-2 sm:gap-x-12 mb-6 rounded-2xl bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-dashed border-blue-200 p-4">
+        <p class="text-gray-400 font-semibold">버튼을 눌러 번호를 뽑아보세요! 🍀</p>
+      </div>
+
+      <!-- 번호 현황표 -->
+      <div class="flex items-center justify-between mb-2">
+        <h3 class="font-extrabold text-sm text-gray-500">📋 전체 번호 현황</h3>
+        <span id="pkStatus" class="text-xs font-bold text-gray-400"></span>
+      </div>
+      <div id="pkGrid" class="grid grid-cols-6 sm:grid-cols-10 gap-1.5 sm:gap-2"><!-- JS 렌더링 --></div>
+    </div>
+  </section>
+
+  <!-- ══════════════ 3. 메모장 ══════════════ -->
+  <section id="panel-notepad" class="tab-panel hidden">
+    <div class="bg-white rounded-3xl shadow-lg p-4 sm:p-6">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-lg sm:text-xl font-extrabold">📝 메모장</h2>
+        <div class="flex gap-2">
+          <button id="npSidebarToggle" class="md:hidden px-3 py-2 rounded-xl bg-gray-100 font-bold text-sm hover:bg-gray-200 active:scale-95 transition-all">☰ 목록</button>
+          <button id="npAddBtn" class="px-4 py-2 rounded-xl bg-blue-500 text-white font-bold text-sm shadow hover:bg-blue-600 active:scale-95 transition-all">＋ 새 메모</button>
+        </div>
+      </div>
+
+      <div class="relative flex gap-4 min-h-[440px]">
+        <!-- 사이드바 -->
+        <aside id="npSidebar" class="absolute md:static z-30 top-0 left-0 h-full md:h-auto w-64 shrink-0 bg-white md:bg-gray-50 rounded-2xl border border-gray-200 shadow-xl md:shadow-none overflow-hidden transform -translate-x-[110%] md:translate-x-0 transition-transform duration-300 flex flex-col">
+          <div class="p-3 border-b border-gray-200 font-extrabold text-sm text-gray-500 flex items-center justify-between">
+            <span>📂 내 메모</span>
+            <button id="npSidebarClose" class="md:hidden text-gray-400 hover:text-gray-600 px-1">✕</button>
+          </div>
+          <ul id="npList" class="flex-1 overflow-y-auto p-2 space-y-1"><!-- JS 렌더링 --></ul>
+        </aside>
+
+        <!-- 에디터 영역 -->
+        <div class="flex-1 min-w-0 flex flex-col">
+          <div id="npEmptyState" class="hidden flex-1 flex-col items-center justify-center text-gray-300 gap-3">
+            <div class="text-6xl">🗒️</div>
+            <p class="font-bold">메모를 선택하거나 새로 만들어 보세요</p>
+          </div>
+
+          <div id="npEditorWrap" class="flex-1 flex flex-col">
+            <!-- 서식 툴바 -->
+            <div class="flex flex-wrap items-center gap-1.5 p-2 bg-gray-50 border border-gray-200 rounded-t-2xl select-none">
+              <select id="npFontSize" onmousedown="event.stopPropagation()" class="px-2 py-1.5 rounded-lg border border-gray-300 text-xs font-bold bg-white outline-none cursor-pointer">
+                <option value="1">아주 작게</option>
+                <option value="2">작게</option>
+                <option value="3" selected>보통</option>
+                <option value="4">조금 크게</option>
+                <option value="5">크게</option>
+                <option value="6">아주 크게</option>
+                <option value="7">최대</option>
+              </select>
+              <button data-cmd="bold" onmousedown="event.preventDefault()" class="np-cmd w-8 h-8 rounded-lg font-extrabold hover:bg-gray-200 active:scale-90 transition-all" title="굵게">B</button>
+              <button data-cmd="underline" onmousedown="event.preventDefault()" class="np-cmd w-8 h-8 rounded-lg underline font-bold hover:bg-gray-200 active:scale-90 transition-all" title="밑줄">U</button>
+              <button data-cmd="italic" onmousedown="event.preventDefault()" class="np-cmd w-8 h-8 rounded-lg italic font-bold hover:bg-gray-200 active:scale-90 transition-all" title="기울임">I</button>
+              <button data-cmd="strikeThrough" onmousedown="event.preventDefault()" class="np-cmd w-8 h-8 rounded-lg line-through font-bold hover:bg-gray-200 active:scale-90 transition-all" title="취소선">S</button>
+              <span class="w-px h-6 bg-gray-300 mx-1"></span>
+              <span class="text-[10px] font-extrabold text-gray-400">글자</span>
+              <span id="npForeColors" class="flex gap-1"></span>
+              <span class="w-px h-6 bg-gray-300 mx-1"></span>
+              <span class="text-[10px] font-extrabold text-gray-400">배경</span>
+              <span id="npBackColors" class="flex gap-1"></span>
+              <span class="flex-1"></span>
+              <button id="npDeleteBtn" class="px-3 py-1.5 rounded-lg text-xs font-bold text-red-500 hover:bg-red-50 active:scale-95 transition-all">🗑️ 삭제</button>
+            </div>
+            <!-- 에디터 본문 -->
+            <div id="memoEditor" contenteditable="true"
+                 class="flex-1 p-4 sm:p-5 bg-white border border-t-0 border-gray-200 rounded-b-2xl overflow-y-auto text-base leading-relaxed focus:ring-2 focus:ring-blue-300 transition-shadow"></div>
+            <p class="text-right text-[11px] text-gray-400 mt-2"><span id="npSaveState">✓ 자동 저장됨</span></p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════════ 4. 타이머 ══════════════ -->
+  <section id="panel-timer" class="tab-panel hidden">
+    <div class="bg-white rounded-3xl shadow-lg p-4 sm:p-8 text-center">
+      <h2 class="text-lg sm:text-xl font-extrabold mb-6 text-left">⏳ 타이머</h2>
+
+      <!-- 설정 화면 -->
+      <div id="tmSetup" class="py-6">
+        <p class="text-sm font-bold text-gray-400 mb-5">시간을 설정하세요</p>
+        <div class="flex items-center justify-center gap-3 mb-8">
+          <label class="flex flex-col items-center gap-2">
+            <input id="tmMin" type="number" min="0" max="99" value="5"
+                   class="w-28 sm:w-36 text-5xl sm:text-6xl font-extrabold text-center tabular-nums rounded-2xl border-2 border-gray-200 py-4 focus:border-blue-400 focus:ring-4 focus:ring-blue-100 outline-none transition-all">
+            <span class="text-xs font-bold text-gray-400">분</span>
+          </label>
+          <span class="text-5xl font-extrabold text-gray-300 pb-7">:</span>
+          <label class="flex flex-col items-center gap-2">
+            <input id="tmSec" type="number" min="0" max="59" value="0"
+                   class="w-28 sm:w-36 text-5xl sm:text-6xl font-extrabold text-center tabular-nums rounded-2xl border-2 border-gray-200 py-4 focus:border-blue-400 focus:ring-4 focus:ring-blue-100 outline-none transition-all">
+            <span class="text-xs font-bold text-gray-400">초</span>
+          </label>
+        </div>
+        <div class="flex flex-wrap justify-center gap-2 mb-8">
+          <button data-preset="60"  class="tm-preset px-4 py-2 rounded-full bg-gray-100 text-sm font-bold hover:bg-yellow-200 active:scale-95 transition-all">1분</button>
+          <button data-preset="180" class="tm-preset px-4 py-2 rounded-full bg-gray-100 text-sm font-bold hover:bg-yellow-200 active:scale-95 transition-all">3분</button>
+          <button data-preset="300" class="tm-preset px-4 py-2 rounded-full bg-gray-100 text-sm font-bold hover:bg-yellow-200 active:scale-95 transition-all">5분</button>
+          <button data-preset="600" class="tm-preset px-4 py-2 rounded-full bg-gray-100 text-sm font-bold hover:bg-yellow-200 active:scale-95 transition-all">10분</button>
+        </div>
+        <button id="tmStartBtn" class="px-12 py-4 rounded-2xl bg-blue-500 text-white text-xl font-extrabold shadow-lg hover:bg-blue-600 hover:shadow-xl active:scale-95 transition-all duration-200">▶ 시작</button>
+      </div>
+
+      <!-- 작동 화면 -->
+      <div id="tmDisplay" class="hidden py-4">
+        <div id="tmClock" class="text-7xl sm:text-9xl md:text-[120px] font-extrabold tabular-nums tracking-tight leading-none mb-8 transition-colors duration-300 select-none">05:00</div>
+        <div class="flex flex-wrap justify-center gap-3 mb-10">
+          <button id="tmPauseBtn" class="px-8 py-3 rounded-xl bg-yellow-400 text-yellow-900 font-extrabold shadow hover:bg-yellow-500 active:scale-95 transition-all duration-200">⏸ 일시정지</button>
+          <button id="tmResumeBtn" class="hidden px-8 py-3 rounded-xl bg-green-500 text-white font-extrabold shadow hover:bg-green-600 active:scale-95 transition-all duration-200">▶ 이어서 계속</button>
+          <button id="tmResetBtn" class="px-8 py-3 rounded-xl bg-gray-200 text-gray-600 font-extrabold hover:bg-gray-300 active:scale-95 transition-all duration-200">↺ 초기화</button>
+        </div>
+        <!-- Progress Bar -->
+        <div class="w-full max-w-2xl mx-auto h-5 bg-gray-200 rounded-full overflow-hidden shadow-inner">
+          <div id="tmProgress" class="h-full rounded-full bg-blue-500 transition-all duration-1000 ease-linear" style="width:100%"></div>
+        </div>
+        <p id="tmFinishedMsg" class="hidden mt-6 text-2xl font-extrabold text-red-500">⏰ 시간 종료!</p>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="text-center text-xs text-gray-400 py-6">🏫 학급도구 · 모든 데이터는 이 기기(브라우저)에만 저장됩니다</footer>
+
+<script type="module">
+'use strict';
+
+/* ═══════════════════════════════════════════
+   공통: 상태, 저장, 탭
+═══════════════════════════════════════════ */
+const $  = (sel) => document.querySelector(sel);
+const $$ = (sel) => [...document.querySelectorAll(sel)];
+
+const store = {
+  get(key, fallback) {
+    try {
+      const raw = localStorage.getItem(key);
+      return raw === null ? fallback : JSON.parse(raw);
+    } catch { return fallback; }
+  },
+  set(key, value) {
+    try { localStorage.setItem(key, JSON.stringify(value)); } catch {}
+  }
+};
+
+/* ── 탭 전환 ── */
+const TABS = ['timetable', 'picker', 'notepad', 'timer'];
+function activateTab(name) {
+  if (!TABS.includes(name)) name = 'timetable';
+  $$('.tab-btn').forEach(btn => {
+    const active = btn.dataset.tab === name;
+    btn.classList.toggle('text-blue-600', active);
+    btn.classList.toggle('border-blue-600', active);
+    btn.classList.toggle('text-gray-500', !active);
+    btn.classList.toggle('border-transparent', !active);
+  });
+  TABS.forEach(t => $(`#panel-${t}`).classList.toggle('hidden', t !== name));
+  store.set('ct_activeTab', name);
+}
+$('#tabNav').addEventListener('click', (e) => {
+  const btn = e.target.closest('.tab-btn');
+  if (btn) activateTab(btn.dataset.tab);
+});
+
+/* ═══════════════════════════════════════════
+   1. 시간표 (Timetable)
+═══════════════════════════════════════════ */
+const TT_ROWS = 6, TT_COLS = 5;
+const ttDefaultCell = () => ({ text: '', color: '#1f2937', locked: false });
+
+let ttCells = store.get('ct_timetable', null);
+if (!Array.isArray(ttCells) || ttCells.length !== TT_ROWS * TT_COLS) {
+  ttCells = Array.from({ length: TT_ROWS * TT_COLS }, ttDefaultCell);
+}
+let ttEditMode = false;
+let ttChecked = new Set();
+
+function ttSave() { store.set('ct_timetable', ttCells); }
+
+function ttRender() {
+  const tbody = $('#ttBody');
+  tbody.innerHTML = '';
+  for (let r = 0; r < TT_ROWS; r++) {
+    const tr = document.createElement('tr');
+
+    const th = document.createElement('th');
+    th.className = 'bg-yellow-200 border border-yellow-300 p-2 text-sm font-extrabold';
+    th.textContent = `${r + 1}교시`;
+    tr.appendChild(th);
+
+    for (let c = 0; c < TT_COLS; c++) {
+      const idx = r * TT_COLS + c;
+      const cell = ttCells[idx];
+      const td = document.createElement('td');
+      td.className = 'border border-gray-200 p-0 align-middle bg-white hover:bg-gray-50 transition-colors';
+
+      if (ttEditMode) {
+        const wrap = document.createElement('div');
+        wrap.className = 'relative p-1';
+
+        const cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.checked = ttChecked.has(idx);
+        cb.dataset.idx = idx;
+        cb.className = 'tt-check absolute top-1.5 left-1.5 w-4 h-4 accent-blue-500 z-10 cursor-pointer';
+        wrap.appendChild(cb);
+
+        if (cell.locked) {
+          const lock = document.createElement('span');
+          lock.textContent = '🔒';
+          lock.className = 'absolute top-1 right-1.5 text-xs z-10 select-none';
+          wrap.appendChild(lock);
+        }
+
+        const ta = document.createElement('textarea');
+        ta.value = cell.text;
+        ta.dataset.idx = idx;
+        ta.rows = 2;
+        ta.className = 'tt-input w-full h-16 pt-5 px-1 text-center text-sm font-bold bg-transparent rounded-lg focus:bg-blue-50 focus:ring-2 focus:ring-blue-300 outline-none transition-all';
+        ta.style.color = cell.color;
+        wrap.appendChild(ta);
+
+        td.appendChild(wrap);
+      } else {
+        const div = document.createElement('div');
+        div.className = 'h-14 sm:h-16 flex items-center justify-center px-1 text-center text-sm sm:text-base font-bold whitespace-pre-line break-keep relative';
+        div.style.color = cell.color;
+        div.textContent = cell.text;
+        if (cell.locked && cell.text) {
+          const lock = document.createElement('span');
+          lock.textContent = '🔒';
+          lock.className = 'absolute top-0.5 right-1 text-[10px] opacity-50 select-none';
+          div.appendChild(lock);
+        }
+        td.appendChild(div);
+      }
+      tr.appendChild(td);
+    }
+    tbody.appendChild(tr);
+  }
+}
+
+/* 설정 모드 토글 */
+$('#ttEditBtn').addEventListener('click', () => {
+  ttEditMode = !ttEditMode;
+  ttChecked.clear();
+  const btn = $('#ttEditBtn');
+  btn.textContent = ttEditMode ? '✔ 설정 완료' : '⚙️ 설정 모드';
+  btn.classList.toggle('bg-green-500', ttEditMode);
+  btn.classList.toggle('hover:bg-green-600', ttEditMode);
+  btn.classList.toggle('bg-blue-500', !ttEditMode);
+  btn.classList.toggle('hover:bg-blue-600', !ttEditMode);
+  $('#ttBulkBar').classList.toggle('hidden', !ttEditMode);
+  $('#ttBulkBar').classList.toggle('flex', ttEditMode);
+  $('#ttHint').classList.toggle('hidden', !ttEditMode);
+  ttRender();
+});
+
+/* 입력 이벤트 (위임) */
+$('#ttBody').addEventListener('input', (e) => {
+  if (e.target.classList.contains('tt-input')) {
+    ttCells[+e.target.dataset.idx].text = e.target.value;
+    ttSave();
+  }
+});
+$('#ttBody').addEventListener('change', (e) => {
+  if (e.target.classList.contains('tt-check')) {
+    const idx = +e.target.dataset.idx;
+    e.target.checked ? ttChecked.add(idx) : ttChecked.delete(idx);
+  }
+});
+
+/* 방향키 엑셀식 이동 */
+$('#ttBody').addEventListener('keydown', (e) => {
+  if (!e.target.classList.contains('tt-input')) return;
+  const idx = +e.target.dataset.idx;
+  const r = Math.floor(idx / TT_COLS), c = idx % TT_COLS;
+  let next = null;
+
+  if (e.key === 'ArrowUp' && r > 0) next = idx - TT_COLS;
+  else if (e.key === 'ArrowDown' && r < TT_ROWS - 1) next = idx + TT_COLS;
+  else if (e.key === 'ArrowLeft' && c > 0) {
+    if (e.target.selectionStart === 0 && e.target.selectionEnd === 0) next = idx - 1;
+  }
+  else if (e.key === 'ArrowRight' && c < TT_COLS - 1) {
+    const len = e.target.value.length;
+    if (e.target.selectionStart === len && e.target.selectionEnd === len) next = idx + 1;
+  }
+  else if (e.key === 'Enter' && !e.shiftKey && r < TT_ROWS - 1) next = idx + TT_COLS;
+
+  if (next !== null) {
+    e.preventDefault();
+    const target = $(`.tt-input[data-idx="${next}"]`);
+    if (target) {
+      target.focus();
+      const end = target.value.length;
+      target.setSelectionRange(end, end);
+    }
+  }
+});
+
+/* 일괄 설정 바 */
+$('#ttSelectAll').addEventListener('click', () => {
+  ttChecked = new Set(Array.from({ length: TT_ROWS * TT_COLS }, (_, i) => i));
+  $$('.tt-check').forEach(cb => cb.checked = true);
+});
+$('#ttDeselectAll').addEventListener('click', () => {
+  ttChecked.clear();
+  $$('.tt-check').forEach(cb => cb.checked = false);
+});
+$$('.tt-color-btn').forEach(btn => btn.addEventListener('click', () => {
+  if (ttChecked.size === 0) return;
+  ttChecked.forEach(idx => ttCells[idx].color = btn.dataset.color);
+  ttSave();
+  const saved = new Set(ttChecked);
+  ttRender();
+  ttChecked = saved;
+}));
+function ttSetLock(locked) {
+  if (ttChecked.size === 0) return;
+  ttChecked.forEach(idx => ttCells[idx].locked = locked);
+  ttSave();
+  const saved = new Set(ttChecked);
+  ttRender();
+  ttChecked = saved;
+}
+$('#ttLockBtn').addEventListener('click', () => ttSetLock(true));
+$('#ttUnlockBtn').addEventListener('click', () => ttSetLock(false));
+
+/* 전체 삭제 모달 */
+function ttModal(show) {
+  const m = $('#ttClearModal');
+  m.classList.toggle('hidden', !show);
+  m.classList.toggle('flex', show);
+}
+$('#ttClearAllBtn').addEventListener('click', () => ttModal(true));
+$('#ttClearCancel').addEventListener('click', () => ttModal(false));
+$('#ttClearModal').addEventListener('click', (e) => { if (e.target === e.currentTarget) ttModal(false); });
+$('#ttClearKeepLocked').addEventListener('click', () => {
+  ttCells = ttCells.map(cell => cell.locked ? cell : ttDefaultCell());
+  ttChecked.clear(); ttSave(); ttRender(); ttModal(false);
+});
+$('#ttClearEverything').addEventListener('click', () => {
+  ttCells = Array.from({ length: TT_ROWS * TT_COLS }, ttDefaultCell);
+  ttChecked.clear(); ttSave(); ttRender(); ttModal(false);
+});
+
+/* ═══════════════════════════════════════════
+   2. 랜덤뽑기 (Random Picker)
+═══════════════════════════════════════════ */
+let pk = store.get('ct_picker', { start: 1, end: 30, count: 1, picked: [], last: [] });
+
+function pkSave() { store.set('ct_picker', pk); }
+
+function pkSyncInputs() {
+  $('#pkStart').value = pk.start;
+  $('#pkEnd').value = pk.end;
+  $('#pkCount').value = pk.count;
+}
+
+/* Fisher-Yates 셔플 */
+function shuffle(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+function pkRenderGrid() {
+  const grid = $('#pkGrid');
+  grid.innerHTML = '';
+  const pickedSet = new Set(pk.picked);
+  const lastSet = new Set(pk.last);
+  let total = 0;
+  for (let n = pk.start; n <= pk.end; n++) {
+    total++;
+    const el = document.createElement('div');
+    const isPicked = pickedSet.has(n);
+    const isLast = lastSet.has(n);
+    el.textContent = n;
+    el.className = 'py-2 rounded-xl text-center text-sm font-bold border transition-all duration-300 ' +
+      (isLast
+        ? 'bg-blue-500 text-white border-blue-500 shadow scale-105'
+        : isPicked
+          ? 'bg-gray-200 text-gray-400 border-gray-200 line-through'
+          : 'bg-white text-gray-700 border-gray-200 shadow-sm');
+    grid.appendChild(el);
+  }
+  $('#pkStatus').textContent = `남은 번호 ${total - pk.picked.length} / 전체 ${total}`;
+}
+
+function pkRenderResult(numbers, animate) {
+  const box = $('#pkResult');
+  box.innerHTML = '';
+  if (!numbers.length) {
+    box.innerHTML = '<p class="text-gray-400 font-semibold">버튼을 눌러 번호를 뽑아보세요! 🍀</p>';
+    return;
+  }
+  numbers.forEach((n, i) => {
+    const span = document.createElement('span');
+    span.textContent = n;
+    span.className = 'inline-block font-extrabold tabular-nums text-blue-600 drop-shadow-sm ' +
+      (numbers.length === 1 ? 'text-8xl sm:text-[140px]' : numbers.length <= 3 ? 'text-6xl sm:text-8xl' : 'text-4xl sm:text-6xl');
+    if (animate) {
+      span.classList.add('pop-in');
+      span.style.animationDelay = `${i * 0.12}s`;
+    }
+    box.appendChild(span);
+  });
+}
+
+/* 폭죽/반짝이 파티클 */
+const CONFETTI_COLORS = ['#f43f5e', '#f97316', '#facc15', '#22c55e', '#3b82f6', '#8b5cf6', '#ec4899', '#14b8a6'];
+function launchConfetti() {
+  const cx = window.innerWidth / 2;
+  const cy = window.innerHeight / 2;
+  const COUNT = 70;
+  for (let i = 0; i < COUNT; i++) {
+    const p = document.createElement('div');
+    const size = 6 + Math.random() * 8;
+    const angle = Math.random() * Math.PI * 2;
+    const dist = 120 + Math.random() * Math.min(window.innerWidth, 600) * 0.55;
+    const dur = 0.9 + Math.random() * 0.9;
+    p.className = 'confetti-piece';
+    p.style.left = `${cx}px`;
+    p.style.top = `${cy}px`;
+    p.style.width = `${size}px`;
+    p.style.height = `${size * (Math.random() > 0.5 ? 1 : 0.4)}px`;
+    p.style.background = CONFETTI_COLORS[i % CONFETTI_COLORS.length];
+    p.style.borderRadius = Math.random() > 0.5 ? '9999px' : '2px';
+    p.style.setProperty('--tx', `${Math.cos(angle) * dist}px`);
+    p.style.setProperty('--ty', `${Math.sin(angle) * dist + 90}px`);
+    p.style.setProperty('--rot', `${(Math.random() - 0.5) * 1080}deg`);
+    p.style.setProperty('--dur', `${dur}s`);
+    document.body.appendChild(p);
+    setTimeout(() => p.remove(), dur * 1000 + 100);
+  }
+}
+
+function pkReadInputs() {
+  let start = parseInt($('#pkStart').value, 10);
+  let end = parseInt($('#pkEnd').value, 10);
+  let count = parseInt($('#pkCount').value, 10);
+  if (isNaN(start)) start = 1;
+  if (isNaN(end)) end = 30;
+  if (isNaN(count)) count = 1;
+  start = Math.max(1, Math.min(998, start));
+  end = Math.max(start + 1, Math.min(999, end));
+  count = Math.max(1, Math.min(99, count));
+  /* 범위가 바뀌면 뽑기 기록 초기화 */
+  if (start !== pk.start || end !== pk.end) {
+    pk.picked = [];
+    pk.last = [];
+  }
+  pk.start = start; pk.end = end; pk.count = count;
+  pkSyncInputs();
+}
+
+$('#pkDrawBtn').addEventListener('click', () => {
+  pkReadInputs();
+  const pickedSet = new Set(pk.picked);
+  const remaining = [];
+  for (let n = pk.start; n <= pk.end; n++) if (!pickedSet.has(n)) remaining.push(n);
+
+  if (remaining.length === 0) {
+    const box = $('#pkResult');
+    box.innerHTML = '<p class="text-gray-400 font-bold text-lg">모든 번호를 다 뽑았어요! ↺ 초기화를 눌러주세요 🎊</p>';
+    return;
+  }
+  const drawCount = Math.min(pk.count, remaining.length);
+  const drawn = shuffle(remaining).slice(0, drawCount).sort((a, b) => a - b);
+
+  pk.picked = pk.picked.concat(drawn);
+  pk.last = drawn;
+  pkSave();
+  pkRenderResult(drawn, true);
+  pkRenderGrid();
+  launchConfetti();
+});
+
+$('#pkResetBtn').addEventListener('click', () => {
+  pkReadInputs();
+  pk.picked = [];
+  pk.last = [];
+  pkSave();
+  pkRenderResult([], false);
+  pkRenderGrid();
+});
+
+['pkStart', 'pkEnd', 'pkCount'].forEach(id => {
+  $(`#${id}`).addEventListener('change', () => { pkReadInputs(); pkSave(); pkRenderGrid(); });
+});
+
+/* ═══════════════════════════════════════════
+   3. 메모장 (Notepad)
+═══════════════════════════════════════════ */
+let memos = store.get('ct_memos', []);
+let npCurrentId = store.get('ct_memoCurrent', null);
+
+const NP_FORE_COLORS = ['#111827', '#dc2626', '#ea580c', '#16a34a', '#2563eb', '#7c3aed', '#db2777'];
+const NP_BACK_COLORS = ['#ffffff', '#fef08a', '#bbf7d0', '#bfdbfe', '#fbcfe8', '#e9d5ff', '#fed7aa'];
+
+function npSave() {
+  store.set('ct_memos', memos);
+  store.set('ct_memoCurrent', npCurrentId);
+}
+
+function npCurrent() { return memos.find(m => m.id === npCurrentId) || null; }
+
+function npTitleOf(memo) {
+  const tmp = document.createElement('div');
+  tmp.innerHTML = memo.content;
+  const text = (tmp.textContent || '').trim();
+  return text ? text.split('\n')[0].slice(0, 24) : '(빈 메모)';
+}
+
+function npRenderList() {
+  const ul = $('#npList');
+  ul.innerHTML = '';
+  if (memos.length === 0) {
+    ul.innerHTML = '<li class="text-center text-xs text-gray-400 py-6">메모가 없어요</li>';
+    return;
+  }
+  memos.forEach(memo => {
+    const li = document.createElement('li');
+    const active = memo.id === npCurrentId;
+    li.className = 'px-3 py-2.5 rounded-xl cursor-pointer text-sm transition-colors duration-150 ' +
+      (active ? 'bg-blue-500 text-white shadow' : 'hover:bg-gray-200 text-gray-700');
+    li.dataset.id = memo.id;
+    const date = new Date(memo.updated);
+    li.innerHTML = `
+      <div class="font-bold truncate">${npTitleOf(memo).replace(/</g, '&lt;')}</div>
+      <div class="text-[11px] ${active ? 'text-blue-100' : 'text-gray-400'}">${date.getMonth() + 1}/${date.getDate()} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}</div>`;
+    ul.appendChild(li);
+  });
+}
+
+function npRenderEditor() {
+  const memo = npCurrent();
+  const hasMemo = !!memo;
+  $('#npEmptyState').classList.toggle('hidden', hasMemo);
+  $('#npEmptyState').classList.toggle('flex', !hasMemo);
+  $('#npEditorWrap').classList.toggle('hidden', !hasMemo);
+  if (hasMemo) $('#memoEditor').innerHTML = memo.content;
+}
+
+function npSelect(id) {
+  npCurrentId = id;
+  npSave();
+  npRenderList();
+  npRenderEditor();
+  npSidebar(false);
+}
+
+$('#npAddBtn').addEventListener('click', () => {
+  const memo = { id: Date.now().toString(36), content: '', updated: Date.now() };
+  memos.unshift(memo);
+  npSelect(memo.id);
+  $('#memoEditor').focus();
+});
+
+$('#npDeleteBtn').addEventListener('click', () => {
+  const memo = npCurrent();
+  if (!memo) return;
+  if (!confirm(`'${npTitleOf(memo)}' 메모를 삭제할까요?`)) return;
+  memos = memos.filter(m => m.id !== memo.id);
+  npCurrentId = memos.length ? memos[0].id : null;
+  npSave();
+  npRenderList();
+  npRenderEditor();
+});
+
+$('#npList').addEventListener('click', (e) => {
+  const li = e.target.closest('li[data-id]');
+  if (li) npSelect(li.dataset.id);
+});
+
+/* 즉시 저장 */
+let npSaveTimer = null;
+$('#memoEditor').addEventListener('input', () => {
+  const memo = npCurrent();
+  if (!memo) return;
+  memo.content = $('#memoEditor').innerHTML;
+  memo.updated = Date.now();
+  npSave();
+  $('#npSaveState').textContent = '⋯ 저장 중';
+  clearTimeout(npSaveTimer);
+  npSaveTimer = setTimeout(() => {
+    npRenderList();
+    $('#npSaveState').textContent = '✓ 자동 저장됨';
+  }, 500);
+});
+
+/* 서식 툴바 */
+try { document.execCommand('styleWithCSS', false, true); } catch {}
+
+function npExec(cmd, value = null) {
+  $('#memoEditor').focus();
+  document.execCommand(cmd, false, value);
+}
+$$('.np-cmd').forEach(btn => btn.addEventListener('click', () => npExec(btn.dataset.cmd)));
+$('#npFontSize').addEventListener('change', (e) => {
+  npExec('fontSize', e.target.value);
+});
+
+/* 색상 팔레트 생성 */
+function npBuildPalette(containerId, colors, cmd) {
+  const box = $(containerId);
+  colors.forEach(color => {
+    const btn = document.createElement('button');
+    btn.className = 'w-6 h-6 rounded-full border border-gray-300 shadow-sm hover:scale-110 active:scale-90 transition-transform';
+    btn.style.background = color;
+    btn.title = color;
+    btn.setAttribute('onmousedown', 'event.preventDefault()');
+    btn.addEventListener('click', () => {
+      if (cmd === 'hiliteColor') {
+        try { npExec('hiliteColor', color); }
+        catch { npExec('backColor', color); }
+      } else {
+        npExec(cmd, color);
+      }
+    });
+    box.appendChild(btn);
+  });
+}
+npBuildPalette('#npForeColors', NP_FORE_COLORS, 'foreColor');
+npBuildPalette('#npBackColors', NP_BACK_COLORS, 'hiliteColor');
+
+/* 모바일 사이드바 */
+function npSidebar(show) {
+  const sb = $('#npSidebar');
+  if (window.matchMedia('(min-width: 768px)').matches) return;
+  sb.classList.toggle('-translate-x-[110%]', !show);
+}
+$('#npSidebarToggle').addEventListener('click', () => npSidebar(true));
+$('#npSidebarClose').addEventListener('click', () => npSidebar(false));
+
+/* ═══════════════════════════════════════════
+   4. 타이머 (Timer)
+═══════════════════════════════════════════ */
+let tmTotal = 0;          // 전체 시간 (초)
+let tmRemainMs = 0;       // 남은 시간 (ms)
+let tmEndAt = 0;          // 종료 예정 timestamp
+let tmInterval = null;
+let tmState = 'idle';     // idle | running | paused | finished
+let tmLastTickSec = -1;
+
+/* ── Web Audio ── */
+let audioCtx = null;
+let alarmInterval = null;
+
+function ensureAudio() {
+  if (!audioCtx) {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (AC) audioCtx = new AC();
+  }
+  if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+  return audioCtx;
+}
+
+/* 짧은 '띡' 소리 */
+function playTick() {
+  const ctx = ensureAudio();
+  if (!ctx) return;
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.type = 'square';
+  osc.frequency.value = 1200;
+  gain.gain.setValueAtTime(0.12, ctx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.07);
+  osc.connect(gain).connect(ctx.destination);
+  osc.start();
+  osc.stop(ctx.currentTime + 0.08);
+}
+
+/* '삑' 기계음 한 번 */
+function playBeep(when, freq = 880, dur = 0.18) {
+  const ctx = ensureAudio();
+  if (!ctx) return;
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.type = 'square';
+  osc.frequency.value = freq;
+  gain.gain.setValueAtTime(0.22, when);
+  gain.gain.setValueAtTime(0.22, when + dur - 0.02);
+  gain.gain.exponentialRampToValueAtTime(0.0001, when + dur);
+  osc.connect(gain).connect(ctx.destination);
+  osc.start(when);
+  osc.stop(when + dur + 0.02);
+}
+
+/* '삑 삑' 반복 알람 */
+function startAlarm() {
+  const ctx = ensureAudio();
+  if (!ctx) return;
+  const pattern = () => {
+    const t = ctx.currentTime;
+    playBeep(t, 880, 0.18);
+    playBeep(t + 0.28, 880, 0.18);
+  };
+  pattern();
+  alarmInterval = setInterval(pattern, 1000);
+}
+
+function stopAlarm() {
+  if (alarmInterval) { clearInterval(alarmInterval); alarmInterval = null; }
+}
+
+/* ── 표시 갱신 ── */
+function tmFormat(sec) {
+  const m = Math.floor(sec / 60), s = sec % 60;
+  return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+}
+
+function tmUpdateView(remainSec) {
+  $('#tmClock').textContent = tmFormat(remainSec);
+  const pct = tmTotal > 0 ? Math.max(0, Math.min(100, (remainSec / tmTotal) * 100)) : 0;
+  const bar = $('#tmProgress');
+  bar.style.width = `${pct}%`;
+
+  const danger = remainSec <= 30 || (tmTotal > 0 && remainSec < tmTotal * 0.2);
+  const clock = $('#tmClock');
+  clock.classList.toggle('text-red-500', danger);
+  clock.classList.toggle('text-gray-800', !danger);
+  bar.classList.toggle('bg-red-500', danger);
+  bar.classList.toggle('bg-blue-500', !danger);
+}
+
+function tmShowDisplay(show) {
+  $('#tmSetup').classList.toggle('hidden', show);
+  $('#tmDisplay').classList.toggle('hidden', !show);
+}
+
+function tmSetButtons() {
+  $('#tmPauseBtn').classList.toggle('hidden', tmState !== 'running');
+  $('#tmResumeBtn').classList.toggle('hidden', tmState !== 'paused');
+}
+
+/* ── 타이머 루프 ── */
+function tmLoop() {
+  const remainMs = Math.max(0, tmEndAt - Date.now());
+  tmRemainMs = remainMs;
+  const remainSec = Math.ceil(remainMs / 1000);
+
+  if (remainSec !== tmLastTickSec) {
+    tmLastTickSec = remainSec;
+    tmUpdateView(remainSec);
+    /* 10초 남았을 때부터 매초 '띡' */
+    if (remainSec > 0 && remainSec <= 10) playTick();
+  }
+
+  if (remainMs <= 0) tmFinish();
+}
+
+function tmStartLoop() {
+  clearInterval(tmInterval);
+  tmInterval = setInterval(tmLoop, 100);
+}
+
+function tmFinish() {
+  clearInterval(tmInterval);
+  tmInterval = null;
+  tmState = 'finished';
+  tmUpdateView(0);
+  $('#tmClock').classList.add('timer-finished');
+  $('#tmFinishedMsg').classList.remove('hidden');
+  $('#tmPauseBtn').classList.add('hidden');
+  $('#tmResumeBtn').classList.add('hidden');
+  startAlarm();
+}
+
+/* ── 컨트롤 ── */
+$('#tmStartBtn').addEventListener('click', () => {
+  let min = parseInt($('#tmMin').value, 10) || 0;
+  let sec = parseInt($('#tmSec').value, 10) || 0;
+  min = Math.max(0, Math.min(99, min));
+  sec = Math.max(0, Math.min(59, sec));
+  const total = min * 60 + sec;
+  if (total <= 0) {
+    $('#tmSec').focus();
+    return;
+  }
+  store.set('ct_timerSetting', { min, sec });
+  ensureAudio(); /* 사용자 제스처 시점에 AudioContext 활성화 */
+  tmTotal = total;
+  tmRemainMs = total * 1000;
+  tmEndAt = Date.now() + tmRemainMs;
+  tmState = 'running';
+  tmLastTickSec = -1;
+  $('#tmClock').classList.remove('timer-finished');
+  $('#tmFinishedMsg').classList.add('hidden');
+  tmShowDisplay(true);
+  tmSetButtons();
+  tmUpdateView(total);
+  tmStartLoop();
+});
+
+$('#tmPauseBtn').addEventListener('click', () => {
+  if (tmState !== 'running') return;
+  clearInterval(tmInterval);
+  tmInterval = null;
+  tmRemainMs = Math.max(0, tmEndAt - Date.now());
+  tmState = 'paused';
+  tmSetButtons();
+});
+
+$('#tmResumeBtn').addEventListener('click', () => {
+  if (tmState !== 'paused') return;
+  tmEndAt = Date.now() + tmRemainMs;
+  tmState = 'running';
+  tmSetButtons();
+  tmStartLoop();
+});
+
+$('#tmResetBtn').addEventListener('click', () => {
+  clearInterval(tmInterval);
+  tmInterval = null;
+  stopAlarm();
+  tmState = 'idle';
+  tmLastTickSec = -1;
+  $('#tmClock').classList.remove('timer-finished');
+  $('#tmFinishedMsg').classList.add('hidden');
+  tmShowDisplay(false);
+});
+
+$$('.tm-preset').forEach(btn => btn.addEventListener('click', () => {
+  const total = +btn.dataset.preset;
+  $('#tmMin').value = Math.floor(total / 60);
+  $('#tmSec').value = total % 60;
+}));
+
+/* ═══════════════════════════════════════════
+   초기화
+═══════════════════════════════════════════ */
+function init() {
+  /* 시간표 */
+  ttRender();
+
+  /* 랜덤뽑기 */
+  pkSyncInputs();
+  pkRenderGrid();
+  pkRenderResult(pk.last, false);
+
+  /* 메모장 */
+  if (npCurrentId && !memos.some(m => m.id === npCurrentId)) npCurrentId = null;
+  if (!npCurrentId && memos.length) npCurrentId = memos[0].id;
+  npRenderList();
+  npRenderEditor();
+
+  /* 타이머 설정 복원 */
+  const tmSetting = store.get('ct_timerSetting', null);
+  if (tmSetting) {
+    $('#tmMin').value = tmSetting.min;
+    $('#tmSec').value = tmSetting.sec;
+  }
+
+  /* 탭 복원 */
+  activateTab(store.get('ct_activeTab', 'timetable'));
+
+  /* 로딩 스크린 숨김 */
+  setTimeout(() => {
+    const ls = $('#loadingScreen');
+    ls.classList.add('opacity-0');
+    setTimeout(() => ls.remove(), 500);
+  }, 600);
+}
+
+init();
+</script>
+</body>
+</html>

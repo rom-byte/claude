@@ -166,7 +166,7 @@
         </label>
         <label class="flex flex-col gap-1 text-xs font-bold text-gray-500">
           끝 번호
-          <input id="pkEnd" type="number" min="2" max="999" value="30" class="w-24 px-3 py-2 rounded-xl border border-gray-300 text-base font-bold text-center focus:ring-2 focus:ring-blue-400 focus:border-blue-400 outline-none transition-all">
+          <input id="pkEnd" type="number" min="2" max="999" value="21" class="w-24 px-3 py-2 rounded-xl border border-gray-300 text-base font-bold text-center focus:ring-2 focus:ring-blue-400 focus:border-blue-400 outline-none transition-all">
         </label>
         <label class="flex flex-col gap-1 text-xs font-bold text-gray-500">
           뽑을 개수
@@ -532,7 +532,7 @@ $('#ttClearEverything').addEventListener('click', () => {
 /* ═══════════════════════════════════════════
    2. 랜덤뽑기 (Random Picker)
 ═══════════════════════════════════════════ */
-let pk = store.get('ct_picker', { start: 1, end: 30, count: 1, picked: [], last: [] });
+let pk = store.get('ct_picker', { start: 1, end: 21, count: 1, picked: [], last: [] });
 
 function pkSave() { store.set('ct_picker', pk); }
 
@@ -622,12 +622,47 @@ function launchConfetti() {
   }
 }
 
+/* 귀여운 '띠링♪' 당첨 효과음 */
+function playDrawSound() {
+  const ctx = ensureAudio();
+  if (!ctx) return;
+  const t0 = ctx.currentTime;
+  /* 도-미-솔-도(높은) 상승 아르페지오 */
+  const notes = [523.25, 659.25, 783.99, 1046.5];
+  notes.forEach((freq, i) => {
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    const start = t0 + i * 0.09;
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(freq, start);
+    gain.gain.setValueAtTime(0.0001, start);
+    gain.gain.exponentialRampToValueAtTime(0.18, start + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.22);
+    osc.connect(gain).connect(ctx.destination);
+    osc.start(start);
+    osc.stop(start + 0.25);
+  });
+  /* 마지막에 반짝이는 하이 톤 */
+  const spark = ctx.createOscillator();
+  const sparkGain = ctx.createGain();
+  const sparkStart = t0 + notes.length * 0.09 + 0.05;
+  spark.type = 'sine';
+  spark.frequency.setValueAtTime(1567.98, sparkStart);
+  spark.frequency.exponentialRampToValueAtTime(2093, sparkStart + 0.15);
+  sparkGain.gain.setValueAtTime(0.0001, sparkStart);
+  sparkGain.gain.exponentialRampToValueAtTime(0.12, sparkStart + 0.02);
+  sparkGain.gain.exponentialRampToValueAtTime(0.0001, sparkStart + 0.3);
+  spark.connect(sparkGain).connect(ctx.destination);
+  spark.start(sparkStart);
+  spark.stop(sparkStart + 0.32);
+}
+
 function pkReadInputs() {
   let start = parseInt($('#pkStart').value, 10);
   let end = parseInt($('#pkEnd').value, 10);
   let count = parseInt($('#pkCount').value, 10);
   if (isNaN(start)) start = 1;
-  if (isNaN(end)) end = 30;
+  if (isNaN(end)) end = 21;
   if (isNaN(count)) count = 1;
   start = Math.max(1, Math.min(998, start));
   end = Math.max(start + 1, Math.min(999, end));
@@ -661,6 +696,7 @@ $('#pkDrawBtn').addEventListener('click', () => {
   pkRenderResult(drawn, true);
   pkRenderGrid();
   launchConfetti();
+  playDrawSound();
 });
 
 $('#pkResetBtn').addEventListener('click', () => {
